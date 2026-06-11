@@ -216,14 +216,14 @@ export class App implements OnInit {
     this.updateGrandTotal();
   }
 
-  cancelProcessedOrder(orderId: number, index: number): void {
+  cancelProcessedOrder(orderId: number, rentalId: string): void {
     if (!orderId) {
       this.toastService.show('Order ID is missing, cannot cancel.', true);
       return;
     }
 
     this.isLoading = true;
-    this.companyService.cancelOrder(orderId).subscribe({
+    this.companyService.cancelOrder(orderId, rentalId).subscribe({
       next: () => {
         this.isLoading = false;
         this.toastService.show('Order Cancelled Successfully');

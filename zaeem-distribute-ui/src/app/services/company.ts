@@ -139,16 +139,16 @@ export class CompanyService {
   }
 
   // New method to cancel a processed order
-  cancelOrder(orderId: number): Observable<any> {
+  cancelOrder(orderId: number, rentalId: string): Observable<any> {
     return this.http.post(`${this.ordersUrl}/cancel/${orderId}`, {}).pipe(
       tap(() => {
         // Find the rental to update its status locally and adjust company balance
         const rentals = this.rentalsSubject.value;
-        const rental = rentals.find(r => r.orderId === orderId);
+        const rental = rentals.find(r => r.id === rentalId);
         
         if (rental) {
           const updatedRentals = rentals.map(r => 
-            r.orderId === orderId ? { ...r, status: 'Cancelled' } : r
+            r.id === rentalId ? { ...r, status: 'Cancelled' } : r
           );
           this.rentalsSubject.next(updatedRentals);
 

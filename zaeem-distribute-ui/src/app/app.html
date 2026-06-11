@@ -254,7 +254,7 @@
                   </span>
                   <button *ngIf="getRentalStatus(item.startDate, item.endDate, item.status) === 'Scheduled'" 
                           class="btn-text" 
-                          (click)="cancelProcessedOrder(item.orderId!, i)" 
+                          (click)="cancelProcessedOrder(item.orderId!, item.id)" 
                           style="margin-left: 0.5rem; color: #ef4444; font-size: 0.7rem; vertical-align: middle;">
                     [Cancel]
                   </button>
