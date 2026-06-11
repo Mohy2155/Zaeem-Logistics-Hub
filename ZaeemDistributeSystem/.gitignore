@@ -1,0 +1,10 @@
+```text
+   ## Ignore Node dependency folders
+   node_modules/
+   
+   ## Ignore IDE and OS files
+   .vs/
+   .vscode/
+   bin/
+   obj/
+   *.user
