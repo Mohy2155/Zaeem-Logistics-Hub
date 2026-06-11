@@ -30,18 +30,19 @@ export const mockApiInterceptor: HttpInterceptorFn = (req, next) => {
     // Pattern Matching for Endpoint Redirection
     const url = req.url.toLowerCase();
 
-    if (url.endsWith('/api/companies') && req.method === 'GET') {
+    if (url.includes('companies') && req.method === 'GET') {
       mockBody = [
         { companyId: 1, companyName: 'Build-It Corp', outstandingBalance: 12500, totalBilledToDate: 45000, defaultDiscount: 10 },
         { companyId: 2, companyName: 'Swift Logistics', outstandingBalance: 85000, totalBilledToDate: 120000, defaultDiscount: 15 },
         { companyId: 3, companyName: 'Mega Structures', outstandingBalance: 0, totalBilledToDate: 25000, defaultDiscount: 5 }
       ];
-    } else if (url.includes('/api/orders/place-bulk-order') && req.method === 'POST') {
+    } else if (url.includes('place-bulk-order')) {
+      // Catching any variation of the bulk order endpoint
       mockBody = { result: 'SUCCESS', orderId: Math.floor(Math.random() * 10000) };
-    } else if (url.includes('/api/orders/cancel/') && req.method === 'POST') {
+    } else if (url.includes('/orders/cancel/')) {
       mockBody = { message: 'Order cancelled successfully' };
     } else {
-      // Generic success for any other potential API calls (e.g. Payments if added later)
+      // Generic success for any other potential API calls (e.g. Payments, etc)
       mockBody = { result: 'SUCCESS', status: 200 };
     }
 
