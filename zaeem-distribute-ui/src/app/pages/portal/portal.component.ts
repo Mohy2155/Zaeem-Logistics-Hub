@@ -141,7 +141,7 @@ export interface OrderLineItem {
           <h3 style="font-size: 1.5rem;">Order Complete</h3>
         </header>
         
-        <div class="invoice-badge">{{ currentInvoiceNumber }}</div>
+        <div class="invoice-badge">{{ invoiceId }}</div>
         <p class="text-muted" style="margin-bottom: 2rem;">Please choose your distribution format:</p>
         
         <div class="modal-actions">
@@ -185,7 +185,7 @@ export class ClientPortalComponent implements OnInit {
 
   showExportModal: boolean = false;
   lastProcessedCompany?: CompanyResponseDto;
-  currentInvoiceNumber: string = '';
+  invoiceId: string = '';
 
   ngOnInit(): void {
     this.companyService.getCompanies().subscribe(data => this.companies = data);
@@ -273,11 +273,9 @@ export class ClientPortalComponent implements OnInit {
       orderTotal: this.cartGrandTotal,
       items: this.cart
     }).subscribe({
-      next: (success: any) => {
-        if (success) {
-          const year = new Date().getFullYear();
-          const randomNum = Math.floor(Math.random() * 9000) + 1000;
-          this.currentInvoiceNumber = `INV-${year}-${randomNum}`;
+      next: (response: any) => {
+        if (response && response.result === 'SUCCESS') {
+          this.invoiceId = response.invoiceId || 'INV-PENDING';
           this.lastProcessedCompany = company;
           this.showExportModal = true;
           this.toastService.show('Bulk Order Processed Successfully');
@@ -320,7 +318,7 @@ export class ClientPortalComponent implements OnInit {
       worksheet.getCell('G6').value = new Date().toLocaleDateString();
       worksheet.getCell('E7').value = 'INVOICE NO:';
       worksheet.getCell('E7').font = { bold: true };
-      worksheet.getCell('F7').value = this.currentInvoiceNumber;
+      worksheet.getCell('F7').value = this.invoiceId;
 
       const headerRow = worksheet.getRow(10);
       headerRow.values = ['Item #', 'Machinery Name', 'Rental Period', 'Total Days', 'Daily Rate', 'Disc %', 'Line Amount'];
@@ -376,7 +374,7 @@ export class ClientPortalComponent implements OnInit {
       doc.setTextColor(100);
       doc.text(`BILL TO: ${company.companyName}`, 14, 35);
       doc.text(`DATE: ${new Date().toLocaleDateString()}`, 14, 40);
-      doc.text(`INVOICE NO: ${this.currentInvoiceNumber}`, 14, 45);
+      doc.text(`INVOICE NO: ${this.invoiceId}`, 14, 45);
 
       const body = this.cart.map((item, index) => [
         index + 1,

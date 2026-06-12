@@ -2,6 +2,9 @@ import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CompanyService, CompanyResponseDto, ActiveRental } from '../../services/company';
+import * as ExcelJS from 'exceljs';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 @Component({
   selector: 'app-admin',
@@ -115,6 +118,32 @@ import { CompanyService, CompanyResponseDto, ActiveRental } from '../../services
         </section>
       </div>
     </div>
+
+    <!-- Receipt Modal -->
+    <div class="modal-backdrop" *ngIf="showReceiptModal">
+      <div class="polished-card modal-card" style="max-width: 440px; text-align: center;">
+        <header class="card-header" style="justify-content: center;">
+          <h3 style="font-size: 1.5rem;">Payment Received</h3>
+        </header>
+        
+        <div class="invoice-badge" style="background: #ecfdf5; color: #065f46; border-color: #a7f3d0;">
+          {{ receiptId }}
+        </div>
+        <p class="text-muted" style="margin-bottom: 2rem;">Payment of <strong>{{ lastPaymentAmount | currency }}</strong> from <strong>{{ lastPaymentCompany?.companyName }}</strong> recorded.</p>
+        
+        <div class="modal-actions">
+          <button class="btn-premium action" (click)="generateReceiptExcel()">
+             📊 Download Excel Receipt
+          </button>
+          <button class="btn-premium primary" (click)="generateReceiptPDF()">
+             📄 Download PDF Receipt
+          </button>
+          <button class="btn-text" (click)="showReceiptModal = false" style="margin-top: 1rem;">
+            Dismiss
+          </button>
+        </div>
+      </div>
+    </div>
   `,
   styles: [`
     .status-badge {
@@ -138,6 +167,11 @@ export class AdminDashboardComponent implements OnInit {
   selectedAdminCompanyId: number = 0;
   paymentAmount: number = 0;
 
+  showReceiptModal: boolean = false;
+  receiptId: string = '';
+  lastPaymentCompany?: CompanyResponseDto;
+  lastPaymentAmount: number = 0;
+
   ngOnInit(): void {
     this.loadData();
   }
@@ -158,12 +192,68 @@ export class AdminDashboardComponent implements OnInit {
 
   recordPayment(): void {
     if (this.selectedAdminCompanyId === 0 || this.paymentAmount <= 0) return;
+    const company = this.companies.find(c => c.companyId === Number(this.selectedAdminCompanyId));
 
-    this.companyService.recordPayment(Number(this.selectedAdminCompanyId), this.paymentAmount).subscribe(success => {
-      if (success) {
+    this.companyService.recordPayment(Number(this.selectedAdminCompanyId), this.paymentAmount).subscribe(response => {
+      if (response && response.result === 'SUCCESS') {
+        this.receiptId = response.receiptId || 'REC-PENDING';
+        this.lastPaymentCompany = company;
+        this.lastPaymentAmount = this.paymentAmount;
+        this.showReceiptModal = true;
+        
         this.paymentAmount = 0;
         this.loadData();
       }
     });
+  }
+
+  async generateReceiptExcel(): Promise<void> {
+    if (!this.lastPaymentCompany) return;
+    try {
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Payment Receipt');
+      
+      worksheet.getCell('A1').value = 'ZAEEM DISTRIBUTE';
+      worksheet.getCell('A1').font = { bold: true, size: 16 };
+      worksheet.getCell('A2').value = 'OFFICIAL PAYMENT RECEIPT';
+      
+      worksheet.getCell('A4').value = 'RECEIPT NO:';
+      worksheet.getCell('B4').value = this.receiptId;
+      worksheet.getCell('A5').value = 'DATE:';
+      worksheet.getCell('B5').value = new Date().toLocaleDateString();
+      
+      worksheet.getCell('A7').value = 'RECEIVED FROM:';
+      worksheet.getCell('B7').value = this.lastPaymentCompany.companyName;
+      worksheet.getCell('A8').value = 'AMOUNT PAID:';
+      worksheet.getCell('B8').value = this.lastPaymentAmount;
+      worksheet.getCell('B8').numFmt = '"$"#,##0.00';
+      
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = window.URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `Receipt_${this.receiptId}_${this.lastPaymentCompany.companyName.replace(/\s+/g, '_')}.xlsx`;
+      anchor.click();
+    } catch (e) { console.error(e); }
+  }
+
+  async generateReceiptPDF(): Promise<void> {
+    if (!this.lastPaymentCompany) return;
+    try {
+      const doc = new jsPDF();
+      doc.setFontSize(20);
+      doc.text('ZAEEM DISTRIBUTE', 14, 20);
+      doc.setFontSize(14);
+      doc.text('PAYMENT RECEIPT', 14, 30);
+      
+      doc.setFontSize(10);
+      doc.text(`RECEIPT NO: ${this.receiptId}`, 14, 45);
+      doc.text(`DATE: ${new Date().toLocaleDateString()}`, 14, 50);
+      doc.text(`RECEIVED FROM: ${this.lastPaymentCompany.companyName}`, 14, 60);
+      doc.text(`AMOUNT PAID: $${this.lastPaymentAmount.toFixed(2)}`, 14, 65);
+      
+      doc.save(`Receipt_${this.receiptId}_${this.lastPaymentCompany.companyName.replace(/\s+/g, '_')}.pdf`);
+    } catch (e) { console.error(e); }
   }
 }

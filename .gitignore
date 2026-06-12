@@ -1,0 +1,13 @@
+[Bb]in/
+[Oo]bj/
+[Log]s/
+*.suo
+*.user
+node_modules/
+/dist/
+/.angular/
+out-debugger?
+.vs/
+.vscode/
+.DS_Store
+Thumbs.db
