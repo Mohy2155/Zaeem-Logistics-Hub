@@ -39,8 +39,42 @@ namespace ZaeemDistribute.Api.Controllers
             // 3. Return HTTP 200 OK with the data
             return Ok(companies);
         }
+
+        // POST: api/payments/record
+        [HttpPost("/api/payments/record")]
+        public async Task<IActionResult> RecordPayment([FromBody] PaymentRequestDto request)
+        {
+            // 1. Fetch the target company from the database
+            var company = await _context.Companies
+                .FirstOrDefaultAsync(c => c.CompanyId == request.CompanyId);
+
+            if (company == null)
+            {
+                return NotFound(new { message = "Company not found." });
+            }
+
+            // 2. Deduct the payment amount from the outstanding balance
+            company.OutstandingBalance -= request.Amount;
+
+            // 3. Instantiate a new ledger tracking instance (Payment Receipt)
+            var receipt = new PaymentReceipt
+            {
+                CompanyId = request.CompanyId,
+                Amount = request.Amount,
+                PaymentDate = DateTime.UtcNow
+            };
+
+            _context.PaymentReceipts.Add(receipt);
+
+            // 4. Persist all changes asynchronously
+            await _context.SaveChangesAsync();
+
+            // 5. Return Ok (200) JSON object response
+            return Ok(new
+            {
+                result = "SUCCESS",
+                receiptId = "REC-" + receipt.PaymentReceiptId
+            });
+        }
     }
-
-
-
 }

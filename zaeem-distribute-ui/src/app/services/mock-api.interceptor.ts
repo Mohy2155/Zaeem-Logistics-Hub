@@ -38,7 +38,9 @@ export const mockApiInterceptor: HttpInterceptorFn = (req, next) => {
       ];
     } else if (url.includes('place-bulk-order')) {
       // Catching any variation of the bulk order endpoint
-      mockBody = { result: 'SUCCESS', orderId: Math.floor(Math.random() * 10000) };
+      mockBody = { result: 'SUCCESS', orderId: Math.floor(Math.random() * 10000), invoiceId: 'INV-2026-XXXX' };
+    } else if (url.includes('payments/record')) {
+      mockBody = { result: 'SUCCESS', receiptId: 'REC-2026-XXXX' };
     } else if (url.includes('/orders/cancel/')) {
       mockBody = { message: 'Order cancelled successfully' };
     } else {

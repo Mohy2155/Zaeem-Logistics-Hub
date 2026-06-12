@@ -10,6 +10,7 @@ namespace ZaeemDistribute.Api.Models
         public DbSet<Company> Companies { get; set; }
         public DbSet<Product> Products { get; set; }
         public DbSet<BulkOrder> BulkOrders { get; set; }
+        public DbSet<PaymentReceipt> PaymentReceipts { get; set; }
         
         // This acts as the catcher's mitt for our Stored Procedure output
         public DbSet<OrderResultDto> OrderResults { get; set; }
@@ -20,6 +21,7 @@ namespace ZaeemDistribute.Api.Models
             modelBuilder.Entity<Company>().Property(c => c.DefaultDiscount).HasColumnType("decimal(18,2)");
             modelBuilder.Entity<Product>().Property(p => p.UnitPrice).HasColumnType("decimal(18,2)");
             modelBuilder.Entity<BulkOrder>().Property(b => b.TotalAmount).HasColumnType("decimal(18,2)");
+            modelBuilder.Entity<PaymentReceipt>().Property(p => p.Amount).HasColumnType("decimal(18,2)");
 
             // Tell EF Core this is a temporary result, not a real table
             modelBuilder.Entity<OrderResultDto>().HasNoKey();

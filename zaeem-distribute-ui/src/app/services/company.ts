@@ -62,6 +62,7 @@ export class CompanyService {
 
   private companiesUrl = 'http://localhost:5234/api/Companies'; 
   private ordersUrl = 'http://localhost:5234/api/orders';
+  private paymentsUrl = 'http://localhost:5234/api/payments';
 
   constructor(private http: HttpClient) {
     // Initial load from "API"
@@ -166,20 +167,24 @@ export class CompanyService {
   }
 
   // Deducts from outstandingBalance
-  recordPayment(companyId: number, amount: number): Observable<boolean> {
-    const currentCompanies = this.companiesSubject.value;
-    const companyIndex = currentCompanies.findIndex(c => c.companyId === companyId);
-
-    if (companyIndex !== -1 && amount > 0) {
-      const company = currentCompanies[companyIndex];
-      const updatedCompanies = [...currentCompanies];
-      updatedCompanies[companyIndex] = {
-        ...company,
-        outstandingBalance: Math.max(0, company.outstandingBalance - amount)
-      };
-      this.companiesSubject.next(updatedCompanies);
-      return of(true).pipe(delay(500));
-    }
-    return of(false).pipe(delay(500));
+  recordPayment(companyId: number, amount: number): Observable<any> {
+    const payload = { companyId, amount };
+    return this.http.post<any>(`${this.paymentsUrl}/record`, payload).pipe(
+      tap(result => {
+        if (result && result.result === 'SUCCESS') {
+          const currentCompanies = this.companiesSubject.value;
+          const companyIndex = currentCompanies.findIndex(c => c.companyId === companyId);
+          if (companyIndex !== -1) {
+            const company = currentCompanies[companyIndex];
+            const updatedCompanies = [...currentCompanies];
+            updatedCompanies[companyIndex] = {
+              ...company,
+              outstandingBalance: Math.max(0, company.outstandingBalance - amount)
+            };
+            this.companiesSubject.next(updatedCompanies);
+          }
+        }
+      })
+    );
   }
 }
