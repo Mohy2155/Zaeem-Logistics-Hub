@@ -1,11 +1,14 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 import { CompanyService, ActiveRental, CompanyResponseDto } from '../../services/company';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
   imports: [CommonModule],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="dashboard-container">
       <header class="content-header">
@@ -396,8 +399,10 @@ import { CompanyService, ActiveRental, CompanyResponseDto } from '../../services
     }
   `]
 })
-export class DashboardComponent implements OnInit {
+export class DashboardComponent implements OnInit, OnDestroy {
   private companyService = inject(CompanyService);
+  private cdr = inject(ChangeDetectorRef);
+  private destroy$ = new Subject<void>();
 
   rentals: ActiveRental[] = [];
   companies: CompanyResponseDto[] = [];
@@ -409,16 +414,27 @@ export class DashboardComponent implements OnInit {
   fleetStatus: { name: string; activeCount: number; percent: number }[] = [];
 
   ngOnInit(): void {
-    this.companyService.getCompanies().subscribe(data => {
+    this.companyService.getCompanies().pipe(takeUntil(this.destroy$)).subscribe(data => {
       this.companies = data;
-      this.calculateOutstanding();
+      this.cdr.markForCheck();
     });
 
-    this.companyService.getRentals().subscribe(data => {
+    this.companyService.getTotalOutstanding().pipe(takeUntil(this.destroy$)).subscribe(total => {
+      this.totalOutstanding = total;
+      this.cdr.markForCheck();
+    });
+
+    this.companyService.getRentals().pipe(takeUntil(this.destroy$)).subscribe(data => {
       this.rentals = data;
       this.calculateMetrics();
       this.calculateFleetDistribution();
+      this.cdr.markForCheck();
     });
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   getDynamicStatus(rental: ActiveRental): string {
@@ -438,9 +454,7 @@ export class DashboardComponent implements OnInit {
     return 'Active';
   }
 
-  calculateOutstanding(): void {
-    this.totalOutstanding = this.companies.reduce((sum, c) => sum + c.outstandingBalance, 0);
-  }
+  // Removed client-side calculateOutstanding()
 
   calculateMetrics(): void {
     const active = this.rentals.filter(r => r.status !== 'Cancelled' && r.status !== 'Returned');

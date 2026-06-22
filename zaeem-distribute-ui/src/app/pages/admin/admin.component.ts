@@ -1,6 +1,8 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 import { CompanyService, CompanyResponseDto, ActiveRental } from '../../services/company';
 import { ToastService } from '../../services/toast';
 import * as ExcelJS from 'exceljs';
@@ -11,6 +13,7 @@ import autoTable from 'jspdf-autotable';
   selector: 'app-admin',
   standalone: true,
   imports: [CommonModule, FormsModule],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="premium-grid" style="grid-template-columns: 1.5fr 1fr; gap: 2rem; align-items: start;">
       <!-- Corporate Ledger Card -->
@@ -261,9 +264,11 @@ import autoTable from 'jspdf-autotable';
     }
   `]
 })
-export class AdminDashboardComponent implements OnInit {
+export class AdminDashboardComponent implements OnInit, OnDestroy {
   private companyService = inject(CompanyService);
   private toastService = inject(ToastService);
+  private cdr = inject(ChangeDetectorRef);
+  private destroy$ = new Subject<void>();
   
   companies: CompanyResponseDto[] = [];
   rentals: ActiveRental[] = [];
@@ -279,25 +284,37 @@ export class AdminDashboardComponent implements OnInit {
     this.loadData();
   }
 
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
   loadData(): void {
-    this.companyService.getCompanies().subscribe(data => this.companies = data);
-    this.companyService.getRentals().subscribe(data => this.rentals = data);
+    this.companyService.getCompanies().pipe(takeUntil(this.destroy$)).subscribe(data => {
+      this.companies = data;
+      this.cdr.markForCheck();
+    });
+    this.companyService.getRentals().pipe(takeUntil(this.destroy$)).subscribe(data => {
+      this.rentals = data;
+      this.cdr.markForCheck();
+    });
   }
 
   cancelProcessedOrder(orderId: number, rentalId: string): void {
-    this.companyService.cancelOrder(orderId, rentalId).subscribe({
+    this.companyService.cancelOrder(orderId, rentalId).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => {
         this.toastService.show('Deployment order cancelled and balance recalculated.');
         this.loadData();
       },
       error: (err) => {
         this.toastService.show('Failed to cancel deployment: ' + (err.error?.message || err.message), true);
+        this.cdr.markForCheck();
       }
     });
   }
 
   getRentalStatus(startDate: string, endDate: string): string {
-    const today = new Date('2026-06-22T00:00:00');
+    const today = new Date();
     today.setHours(0,0,0,0);
     
     const start = new Date(startDate);
@@ -319,7 +336,7 @@ export class AdminDashboardComponent implements OnInit {
     if (this.selectedAdminCompanyId === 0 || this.paymentAmount <= 0) return;
     const company = this.companies.find(c => c.companyId === Number(this.selectedAdminCompanyId));
 
-    this.companyService.recordPayment(Number(this.selectedAdminCompanyId), this.paymentAmount).subscribe(response => {
+    this.companyService.recordPayment(Number(this.selectedAdminCompanyId), this.paymentAmount).pipe(takeUntil(this.destroy$)).subscribe(response => {
       if (response && response.result === 'SUCCESS') {
         this.receiptId = response.receiptId || 'REC-PENDING';
         this.lastPaymentCompany = company;
