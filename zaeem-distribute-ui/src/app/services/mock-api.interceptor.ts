@@ -92,7 +92,9 @@ export const mockApiInterceptor: HttpInterceptorFn = (req, next) => {
             dailyRate: item.dailyRate,
             discount: item.discount,
             totalAmount: item.lineTotal,
-            status: 'Active'
+            status: 'Active',
+            taxType: item.taxType,
+            taxPercent: item.taxPercent
           }));
           localStorage.setItem('zaeem_rentals', JSON.stringify([...rentals, ...newRentals]));
         }
@@ -122,6 +124,29 @@ export const mockApiInterceptor: HttpInterceptorFn = (req, next) => {
       }
     } else if (url.includes('payments/receipts') && req.method === 'GET') {
       mockBody = JSON.parse(localStorage.getItem('zaeem_receipts') || '[]');
+    } else if (url.includes('orders/rentals') && req.method === 'DELETE') {
+      const parts = url.split('/');
+      const rentalItemId = Number(parts[parts.length - 1]);
+      
+      const rentals = JSON.parse(localStorage.getItem('zaeem_rentals') || '[]');
+      const rentalIndex = rentals.findIndex((r: any) => r.rentalItemId === rentalItemId || r.id === rentalItemId.toString());
+      
+      if (rentalIndex !== -1) {
+        const rental = rentals[rentalIndex];
+        
+        // Remove from list
+        rentals.splice(rentalIndex, 1);
+        localStorage.setItem('zaeem_rentals', JSON.stringify(rentals));
+
+        // Deduct order total from the company outstanding balance
+        const companies = JSON.parse(localStorage.getItem('zaeem_companies') || '[]');
+        const company = companies.find((c: any) => c.companyName === rental.companyName);
+        if (company) {
+          company.outstandingBalance = Math.max(0, company.outstandingBalance - rental.totalAmount);
+          localStorage.setItem('zaeem_companies', JSON.stringify(companies));
+        }
+      }
+      mockBody = { message: 'Rental item cancelled and removed successfully' };
     } else if (url.includes('/orders/cancel/')) {
       // Fetch associated rental to modify state
       const parts = url.split('/');

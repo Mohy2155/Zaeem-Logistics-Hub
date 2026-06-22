@@ -16,6 +16,9 @@ export interface OrderLineItem {
   dailyRate: number;
   discount: number;
   lineTotal: number;
+  plateNumber: string;
+  taxType: string;
+  taxPercent: number;
 }
 
 @Component({
@@ -33,7 +36,7 @@ export interface OrderLineItem {
         <form (submit)="$event.preventDefault(); addToOrder()" class="order-form">
           <div class="form-group">
             <label>Client / Partner</label>
-            <select [(ngModel)]="selectedCompanyId" (change)="onFormChange()" name="companyId" required>
+            <select [(ngModel)]="selectedCompanyId" (change)="onCompanyChange()" name="companyId" required>
               <option value="0" disabled selected>Select a client...</option>
               <option *ngFor="let c of companies" [value]="c.companyId">
                 {{ c.companyName }}
@@ -51,7 +54,7 @@ export interface OrderLineItem {
             </select>
           </div>
 
-          <div class="premium-grid" style="grid-template-columns: 1fr 1fr; gap: 1rem;">
+          <div class="premium-grid" style="grid-template-columns: 1fr 1fr; gap: 1rem; margin: 0; padding: 0;">
             <div class="form-group">
               <label>Start Date</label>
               <input type="date" [(ngModel)]="startDate" (change)="onFormChange()" name="startDate" [min]="minDate" required />
@@ -59,6 +62,27 @@ export interface OrderLineItem {
             <div class="form-group">
               <label>End Date</label>
               <input type="date" [(ngModel)]="endDate" (change)="onFormChange()" name="endDate" [min]="startDate || minDate" required [class.invalid]="!isEndDateValid" />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Plate Number</label>
+            <input type="text" [(ngModel)]="plateNumber" name="plateNumber" placeholder="e.g. DX-7728" required />
+          </div>
+
+          <div class="premium-grid" style="grid-template-columns: 1fr 1fr; gap: 1rem; margin: 0; padding: 0;">
+            <div class="form-group">
+              <label>Tax Type</label>
+              <select [(ngModel)]="taxType" name="taxType" required>
+                <option value="VAT">VAT</option>
+                <option value="GST">GST</option>
+                <option value="Sales Tax">Sales Tax</option>
+                <option value="None">None</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Tax (%)</label>
+              <input type="number" [(ngModel)]="taxPercent" (change)="onFormChange()" name="taxPercent" min="0" max="100" required />
             </div>
           </div>
 
@@ -77,7 +101,7 @@ export interface OrderLineItem {
                <strong class="text-success">{{ discountOverride }}% Off</strong>
              </div>
              <div class="summary-line">
-               <span>Estimate:</span>
+               <span>Estimate (incl. Tax):</span>
                <strong class="text-success">{{ previewTotal | currency }}</strong>
              </div>
           </div>
@@ -107,10 +131,11 @@ export interface OrderLineItem {
             <tbody>
               <tr *ngFor="let item of cart; let i = index">
                 <td>
-                  <div class="font-medium">{{ item.machineName }}</div>
+                  <div class="font-medium">{{ item.machineName }} ({{ item.plateNumber }})</div>
                   <div class="text-muted small">
                     {{ item.rentalDays }} days 
                     <span *ngIf="item.discount > 0">({{ item.discount }}% disc.)</span>
+                    <span> - {{ item.taxType }} ({{ item.taxPercent }}%)</span>
                   </div>
                 </td>
                 <td class="text-right font-mono">{{ item.lineTotal | currency }}</td>
@@ -308,6 +333,9 @@ export class ClientPortalComponent implements OnInit {
   startDate: string = '';
   endDate: string = '';
   minDate: string = '';
+  plateNumber: string = '';
+  taxType: string = 'VAT';
+  taxPercent: number = 5;
 
   previewTotal: number = 0;
   previewDays: number = 0;
@@ -342,7 +370,8 @@ export class ClientPortalComponent implements OnInit {
         const diffTime = Math.abs(end.getTime() - start.getTime());
         this.previewDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         const subtotal = this.previewDays * (machine?.dailyRate || 0);
-        this.previewTotal = subtotal * (1 - (this.discountOverride / 100));
+        const discounted = subtotal * (1 - (this.discountOverride / 100));
+        this.previewTotal = discounted * (1 + (this.taxPercent / 100));
       } else {
         this.previewDays = 0;
         this.previewTotal = 0;
@@ -363,7 +392,8 @@ export class ClientPortalComponent implements OnInit {
       this.selectedMachineId > 0 &&
       !!this.startDate &&
       !!this.endDate &&
-      this.isEndDateValid
+      this.isEndDateValid &&
+      !!this.plateNumber
     );
   }
 
@@ -380,7 +410,10 @@ export class ClientPortalComponent implements OnInit {
       rentalDays: this.previewDays,
       dailyRate: machine.dailyRate,
       discount: this.discountOverride,
-      lineTotal: this.previewTotal
+      lineTotal: this.previewTotal,
+      plateNumber: this.plateNumber,
+      taxType: this.taxType,
+      taxPercent: this.taxPercent
     });
     this.updateGrandTotal();
     this.resetFormSelection();
@@ -400,6 +433,10 @@ export class ClientPortalComponent implements OnInit {
     const company = this.companies.find(c => c.companyId === Number(this.selectedCompanyId));
     if (!company) return;
 
+    // Cache the cart items so they can be exported after we clear the cart
+    const exportedCart = [...this.cart];
+    const exportedTotal = this.cartGrandTotal;
+
     this.companyService.placeBulkOrder({
       companyId: Number(this.selectedCompanyId),
       orderTotal: this.cartGrandTotal,
@@ -409,6 +446,9 @@ export class ClientPortalComponent implements OnInit {
         if (response && response.result === 'SUCCESS') {
           this.invoiceId = response.invoiceId || 'INV-PENDING';
           this.lastProcessedCompany = company;
+          // Temporarily restore for invoice generation session, then clear
+          this.cart = exportedCart;
+          this.cartGrandTotal = exportedTotal;
           this.showExportModal = true;
           this.toastService.show('Bulk Order Processed Successfully');
         } else {
@@ -423,13 +463,18 @@ export class ClientPortalComponent implements OnInit {
     try {
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet('Invoice');
+      worksheet.views = [{ showGridLines: true }];
+
       worksheet.columns = [
-        { key: 'itemNum', width: 10 },
-        { key: 'machineName', width: 30 },
+        { key: 'itemNum', width: 8 },
+        { key: 'machineName', width: 25 },
+        { key: 'plateNumber', width: 15 },
         { key: 'rentalPeriod', width: 25 },
         { key: 'totalDays', width: 12 },
         { key: 'dailyRate', width: 15 },
-        { key: 'discount', width: 12 },
+        { key: 'discount', width: 10 },
+        { key: 'taxType', width: 12 },
+        { key: 'taxPercent', width: 10 },
         { key: 'lineAmount', width: 15 }
       ];
 
@@ -437,7 +482,7 @@ export class ClientPortalComponent implements OnInit {
       titleCell.value = 'ZAEEM DISTRIBUTE';
       titleCell.font = { name: 'Arial Black', size: 20, bold: true, color: { argb: '1E293B' } };
 
-      const invoiceLabelCell = worksheet.getCell('G1');
+      const invoiceLabelCell = worksheet.getCell('J1');
       invoiceLabelCell.value = 'INVOICE';
       invoiceLabelCell.font = { size: 24, bold: true };
       invoiceLabelCell.alignment = { vertical: 'middle', horizontal: 'right' };
@@ -446,17 +491,17 @@ export class ClientPortalComponent implements OnInit {
       worksheet.getCell('A6').font = { bold: true };
       worksheet.getCell('A7').value = company.companyName;
 
-      worksheet.getCell('F6').value = 'INVOICE DATE:';
-      worksheet.getCell('G6').value = new Date().toLocaleDateString();
-      worksheet.getCell('E7').value = 'INVOICE NO:';
-      worksheet.getCell('E7').font = { bold: true };
-      worksheet.getCell('F7').value = this.invoiceId;
+      worksheet.getCell('I6').value = 'INVOICE DATE:';
+      worksheet.getCell('J6').value = new Date().toLocaleDateString();
+      worksheet.getCell('H7').value = 'INVOICE NO:';
+      worksheet.getCell('H7').font = { bold: true };
+      worksheet.getCell('I7').value = this.invoiceId;
 
       const headerRow = worksheet.getRow(10);
-      headerRow.values = ['Item #', 'Machinery Name', 'Rental Period', 'Total Days', 'Daily Rate', 'Disc %', 'Line Amount'];
+      headerRow.values = ['Item #', 'Machinery Name', 'Plate Number', 'Rental Period', 'Total Days', 'Daily Rate', 'Disc %', 'Tax Type', 'Tax %', 'Line Amount'];
       headerRow.eachCell((cell) => {
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1E293B' } };
-        cell.font = { color: { argb: 'FFFFFF' }, bold: true };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } }; // Slate Brand Header
+        cell.font = { color: { argb: 'FFFFFFFF' }, bold: true };
         cell.alignment = { horizontal: 'center' };
       });
 
@@ -466,24 +511,58 @@ export class ClientPortalComponent implements OnInit {
         row.values = {
           itemNum: i + 1,
           machineName: item.machineName,
+          plateNumber: item.plateNumber,
           rentalPeriod: `${new Date(item.startDate).toLocaleDateString()} to ${new Date(item.endDate).toLocaleDateString()}`,
           totalDays: item.rentalDays,
           dailyRate: item.dailyRate,
           discount: item.discount + '%',
+          taxType: item.taxType,
+          taxPercent: item.taxPercent + '%',
           lineAmount: item.lineTotal
         };
         row.getCell('dailyRate').numFmt = '"$"#,##0.00';
         row.getCell('lineAmount').numFmt = '"$"#,##0.00';
+
+        // Alternating Zebra striping using soft slate #F1F5F9
+        const isAlternate = i % 2 === 1;
+        const bgColor = isAlternate ? 'FFF1F5F9' : 'FFFFFFFF';
+        row.eachCell((cell) => {
+          cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: bgColor }
+          };
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+          };
+        });
         row.commit();
       });
 
       const lastItemRow = 10 + this.cart.length;
       const subtotalRowIndex = lastItemRow + 2;
       const subtotalRow = worksheet.getRow(subtotalRowIndex);
-      subtotalRow.getCell(6).value = 'TOTAL DUE:';
-      subtotalRow.getCell(6).font = { bold: true };
-      subtotalRow.getCell(7).value = this.cartGrandTotal;
-      subtotalRow.getCell(7).numFmt = '"$"#,##0.00';
+      subtotalRow.getCell(9).value = 'TOTAL DUE:';
+      subtotalRow.getCell(9).font = { bold: true };
+      subtotalRow.getCell(10).value = this.cartGrandTotal;
+      subtotalRow.getCell(10).numFmt = '"$"#,##0.00';
+
+      // Auto-fit columns dynamically at runtime using column max-length calculations plus safety padding
+      worksheet.columns.forEach(column => {
+        if (column && column.eachCell) {
+          let maxLength = 0;
+          column.eachCell({ includeEmpty: true }, cell => {
+            const val = cell.value ? cell.value.toString() : '';
+            if (val.length > maxLength) {
+              maxLength = val.length;
+            }
+          });
+          column.width = maxLength < 10 ? 12 : maxLength + 4;
+        }
+      });
 
       const buffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -511,16 +590,19 @@ export class ClientPortalComponent implements OnInit {
       const body = this.cart.map((item, index) => [
         index + 1,
         item.machineName,
+        item.plateNumber,
         `${new Date(item.startDate).toLocaleDateString()} to ${new Date(item.endDate).toLocaleDateString()}`,
         item.rentalDays,
         `$${item.dailyRate.toFixed(2)}`,
         `${item.discount}%`,
+        item.taxType,
+        `${item.taxPercent}%`,
         `$${item.lineTotal.toFixed(2)}`
       ]);
 
       autoTable(doc, {
         startY: 50,
-        head: [["Item #", "Machinery Name", "Rental Period", "Total Days", "Daily Rate", "Disc %", "Line Amount"]],
+        head: [["Item #", "Machinery Name", "Plate Number", "Rental Period", "Total Days", "Daily Rate", "Disc %", "Tax Type", "Tax %", "Line Amount"]],
         body: body,
         theme: 'grid',
         headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: 'bold' },
@@ -530,7 +612,7 @@ export class ClientPortalComponent implements OnInit {
       const finalY = (doc as any).lastAutoTable.finalY || 150;
       doc.setFontSize(10);
       doc.setTextColor(30, 41, 59);
-      doc.text(`TOTAL DUE: $${this.cartGrandTotal.toFixed(2)}`, 150, finalY + 10);
+      doc.text(`TOTAL DUE: $${this.cartGrandTotal.toFixed(2)}`, 140, finalY + 10);
 
       doc.save(`Invoice_${company.companyName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
       this.closeExportModal();
@@ -550,5 +632,8 @@ export class ClientPortalComponent implements OnInit {
     this.endDate = '';
     this.previewTotal = 0;
     this.previewDays = 0;
+    this.plateNumber = '';
+    this.taxType = 'VAT';
+    this.taxPercent = 5;
   }
 }

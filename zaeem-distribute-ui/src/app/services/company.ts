@@ -23,6 +23,8 @@ export interface ActiveRental {
   discount: number;
   totalAmount: number;
   status?: string;
+  taxType?: string;
+  taxPercent?: number;
 }
 
 export interface OrderRequestDto {
@@ -107,7 +109,9 @@ export class CompanyService {
         dailyRate: item.dailyRate,
         discount: item.discount,
         totalAmount: item.totalAmount,
-        status: item.status
+        status: item.status,
+        taxType: item.taxType,
+        taxPercent: item.taxPercent
       }))),
       tap(data => this.rentalsSubject.next(data)),
       catchError(() => {
@@ -148,7 +152,10 @@ export class CompanyService {
               endDate: item.endDate,
               dailyRate: item.dailyRate,
               discount: item.discount,
-              totalAmount: item.lineTotal
+              totalAmount: item.lineTotal,
+              status: 'Active',
+              taxType: item.taxType,
+              taxPercent: item.taxPercent
             }));
             this.rentalsSubject.next([...this.rentalsSubject.value, ...newRentals]);
           }
@@ -158,18 +165,17 @@ export class CompanyService {
     return of(false).pipe(delay(500));
   }
 
-  // New method to cancel a processed order
+  // New method to cancel a processed order via DELETE endpoint
   cancelOrder(orderId: number, rentalId: string): Observable<any> {
-    return this.http.post(`${this.ordersUrl}/cancel/${orderId}`, {}).pipe(
+    return this.http.delete(`${this.ordersUrl}/rentals/${rentalId}`).pipe(
       tap(() => {
         // Find the rental to update its status locally and adjust company balance
         const rentals = this.rentalsSubject.value;
         const rental = rentals.find(r => r.id === rentalId);
         
         if (rental) {
-          const updatedRentals = rentals.map(r => 
-            r.id === rentalId ? { ...r, status: 'Cancelled' } : r
-          );
+          // Remove the schedule item from local list
+          const updatedRentals = rentals.filter(r => r.id !== rentalId);
           this.rentalsSubject.next(updatedRentals);
 
           // Also update the company's outstanding balance
@@ -177,7 +183,7 @@ export class CompanyService {
           const companyIndex = companies.findIndex(c => c.companyName === rental.companyName);
           if (companyIndex !== -1) {
             const updatedCompanies = [...companies];
-            updatedCompanies[companyIndex].outstandingBalance -= rental.totalAmount;
+            updatedCompanies[companyIndex].outstandingBalance = Math.max(0, updatedCompanies[companyIndex].outstandingBalance - rental.totalAmount);
             this.companiesSubject.next(updatedCompanies);
           }
         }

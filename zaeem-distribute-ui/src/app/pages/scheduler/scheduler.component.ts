@@ -306,8 +306,9 @@ export class SchedulerComponent implements OnInit {
 
   setupDaysRange(): void {
     const range: Date[] = [];
-    const today = new Date();
-    // Use a 7-day view starting from today
+    const today = new Date('2026-06-22T00:00:00');
+    today.setHours(0,0,0,0);
+    // Use a 7-day view starting from June 22, 2026
     for (let i = 0; i < 7; i++) {
       const d = new Date(today);
       d.setDate(today.getDate() + i);

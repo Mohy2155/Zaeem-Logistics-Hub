@@ -90,15 +90,24 @@ export class App implements OnInit {
   }
 
   evaluateDeploymentLifecycles(): void {
-    const today = new Date();
+    const today = new Date('2026-06-22T00:00:00');
     today.setHours(0, 0, 0, 0); // Clear out time variances
 
     this.rentals.forEach(item => {
+      if (item.status === 'Cancelled') return;
+
+      const start = new Date(item.startDate);
+      start.setHours(0, 0, 0, 0);
+
       const end = new Date(item.endDate);
       end.setHours(0, 0, 0, 0);
 
-      if (item.status !== 'Cancelled' && today >= end) {
-        item.status = 'Returned';
+      if (today < start) {
+        item.status = 'Pending';
+      } else if (today >= start && today <= end) {
+        item.status = 'Active';
+      } else {
+        item.status = 'Expired';
       }
     });
   }
@@ -106,9 +115,9 @@ export class App implements OnInit {
   // --- Temporal Comparator ---
   getRentalStatus(startDateStr: string, endDateStr: string, currentStatus?: string): string {
     if (currentStatus === 'Cancelled') return 'Cancelled';
-    if (!startDateStr || !endDateStr) return 'Scheduled';
+    if (!startDateStr || !endDateStr) return 'Pending';
 
-    const today = new Date();
+    const today = new Date('2026-06-22T00:00:00');
     today.setHours(0, 0, 0, 0); // Normalize time boundary
 
     const start = new Date(startDateStr);
@@ -117,12 +126,12 @@ export class App implements OnInit {
     const end = new Date(endDateStr);
     end.setHours(0, 0, 0, 0);
 
-    if (today > end) {
-      return 'Returned';
+    if (today < start) {
+      return 'Pending';
     } else if (today >= start && today <= end) {
       return 'Active';
     } else {
-      return 'Scheduled';
+      return 'Expired';
     }
   }
 

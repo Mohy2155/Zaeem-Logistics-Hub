@@ -2,6 +2,7 @@ import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CompanyService, CompanyResponseDto, ActiveRental } from '../../services/company';
+import { ToastService } from '../../services/toast';
 import * as ExcelJS from 'exceljs';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -23,10 +24,10 @@ import autoTable from 'jspdf-autotable';
           <table class="premium-table">
             <thead>
               <tr>
-                <th>Partner ID</th>
-                <th>Company Name</th>
-                <th class="text-right">Balance Due</th>
-                <th class="text-right">Lifetime Billed</th>
+                <th style="width: 15%;">Partner ID</th>
+                <th style="width: 45%;">Company Name</th>
+                <th style="width: 20%; text-align: right;">Balance Due</th>
+                <th style="width: 20%; text-align: right;">Lifetime Billed</th>
               </tr>
             </thead>
             <tbody>
@@ -57,10 +58,12 @@ import autoTable from 'jspdf-autotable';
             <table class="premium-table">
               <thead>
                 <tr>
-                  <th>Equipment / Client</th>
-                  <th>Rental Period</th>
-                  <th>Status</th>
-                  <th class="text-right">Total</th>
+                  <th style="width: 30%;">Equipment / Client</th>
+                  <th style="width: 20%;">Plate Number</th>
+                  <th style="width: 25%;">Rental Period</th>
+                  <th style="width: 15%;">Status</th>
+                  <th style="width: 10%; text-align: right;">Total</th>
+                  <th style="text-align: center; width: 10%;">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -69,18 +72,28 @@ import autoTable from 'jspdf-autotable';
                     <div style="font-weight: 600;">{{ rental.machineName }}</div>
                     <div class="text-muted" style="font-size: 0.75rem;">{{ rental.companyName }}</div>
                   </td>
+                  <td class="font-mono" style="font-size: 0.8rem;">
+                    {{ rental.plateNumber || 'N/A' }}
+                  </td>
                   <td>
                     <div style="font-size: 0.8rem;">{{ rental.startDate | date:'shortDate' }} - {{ rental.endDate | date:'shortDate' }}</div>
                   </td>
                   <td>
-                    <span class="status-badge" [ngClass]="getRentalStatus(rental.endDate).toLowerCase().replace('/','-')">
-                      {{ getRentalStatus(rental.endDate) }}
+                    <span class="status-badge" [ngClass]="getRentalStatus(rental.startDate, rental.endDate).toLowerCase()">
+                      {{ getRentalStatus(rental.startDate, rental.endDate) }}
                     </span>
                   </td>
                   <td class="text-right font-mono">{{ rental.totalAmount | currency }}</td>
+                  <td style="text-align: center;">
+                    <button *ngIf="getRentalStatus(rental.startDate, rental.endDate) === 'Pending'"
+                            class="btn-cancel"
+                            (click)="cancelProcessedOrder(rental.orderId || 0, rental.id)">
+                      Cancel
+                    </button>
+                  </td>
                 </tr>
                 <tr *ngIf="rentals.length === 0">
-                  <td colspan="4" style="text-align: center; padding: 2rem;" class="text-muted italic">
+                  <td colspan="6" style="text-align: center; padding: 2rem;" class="text-muted italic">
                     No active equipment rentals tracked in system.
                   </td>
                 </tr>
@@ -146,6 +159,57 @@ import autoTable from 'jspdf-autotable';
     </div>
   `,
   styles: [`
+    .polished-card {
+      background: rgba(255, 255, 255, 0.75);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(226, 232, 240, 0.8);
+      border-radius: 16px;
+      box-shadow: 0 4px 20px 0 rgba(15, 23, 42, 0.05);
+      padding: 2rem;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .polished-card:hover {
+      box-shadow: 0 8px 30px 0 rgba(15, 23, 42, 0.08);
+    }
+    .card-header {
+      margin-bottom: 1.5rem;
+      border-bottom: 1px solid rgba(226, 232, 240, 0.6);
+      padding-bottom: 0.75rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .card-header h3 {
+      font-size: 1.15rem;
+      font-weight: 600;
+      color: #0f172a;
+      margin: 0;
+    }
+    .premium-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .premium-table th {
+      background-color: #f8fafc;
+      padding: 0.75rem 1rem;
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #475569;
+      border-bottom: 2px solid #e2e8f0;
+      text-align: left;
+    }
+    .premium-table td {
+      padding: 1.25rem 1rem;
+      font-size: 0.85rem;
+      border-bottom: 1px solid #f1f5f9;
+      color: #0f172a;
+    }
+    .premium-table tr:hover {
+      background-color: rgba(248, 250, 252, 0.5);
+    }
     .status-badge {
       padding: 0.25rem 0.5rem;
       border-radius: 4px;
@@ -153,9 +217,29 @@ import autoTable from 'jspdf-autotable';
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.5px;
+      display: inline-block;
     }
-    .status-badge.active { background-color: #dcfce7; color: #166534; }
-    .status-badge.returned-overdue { background-color: #fee2e2; color: #991b1b; }
+    .status-badge.pending { background-color: #fef9c3; color: #a16207; }
+    .status-badge.active { background-color: #dcfce7; color: #15803d; }
+    .status-badge.expired { background-color: #fee2e2; color: #b91c1c; }
+    
+    .btn-cancel {
+      background: #fee2e2;
+      color: #991b1b;
+      border: 1px solid #fca5a5;
+      padding: 0.35rem 0.75rem;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .btn-cancel:hover {
+      background: #fecaca;
+      color: #7f1d1d;
+      border-color: #f87171;
+    }
+    
     .italic { font-style: italic; }
 
     .admin-form {
@@ -236,6 +320,7 @@ import autoTable from 'jspdf-autotable';
 })
 export class AdminDashboardComponent implements OnInit {
   private companyService = inject(CompanyService);
+  private toastService = inject(ToastService);
   
   companies: CompanyResponseDto[] = [];
   rentals: ActiveRental[] = [];
@@ -256,13 +341,35 @@ export class AdminDashboardComponent implements OnInit {
     this.companyService.getRentals().subscribe(data => this.rentals = data);
   }
 
-  getRentalStatus(endDate: string): string {
-    const today = new Date();
+  cancelProcessedOrder(orderId: number, rentalId: string): void {
+    this.companyService.cancelOrder(orderId, rentalId).subscribe({
+      next: () => {
+        this.toastService.show('Deployment order cancelled and balance recalculated.');
+        this.loadData();
+      },
+      error: (err) => {
+        this.toastService.show('Failed to cancel deployment: ' + (err.error?.message || err.message), true);
+      }
+    });
+  }
+
+  getRentalStatus(startDate: string, endDate: string): string {
+    const today = new Date('2026-06-22T00:00:00');
     today.setHours(0,0,0,0);
+    
+    const start = new Date(startDate);
+    start.setHours(0,0,0,0);
+    
     const end = new Date(endDate);
     end.setHours(0,0,0,0);
 
-    return today <= end ? 'Active' : 'Overdue/Returned';
+    if (today < start) {
+      return 'Pending';
+    } else if (today >= start && today <= end) {
+      return 'Active';
+    } else {
+      return 'Expired';
+    }
   }
 
   recordPayment(): void {

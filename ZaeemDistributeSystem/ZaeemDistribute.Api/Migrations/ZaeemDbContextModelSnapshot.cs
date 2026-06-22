@@ -190,6 +190,13 @@ namespace ZaeemDistribute.Api.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<decimal>("TaxPercent")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("TaxType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<decimal>("TotalAmount")
                         .HasColumnType("decimal(18,2)");
 
