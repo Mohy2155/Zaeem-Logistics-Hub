@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, BehaviorSubject, of } from 'rxjs';
 import { map, tap, delay, catchError } from 'rxjs/operators';
+import { environment } from '../../environments/environment';
 
 export interface CompanyResponseDto {
   companyId: number;
@@ -63,9 +64,9 @@ export class CompanyService {
   private rentalsSubject = new BehaviorSubject<ActiveRental[]>([]);
   rentals$ = this.rentalsSubject.asObservable();
 
-  private companiesUrl = 'http://localhost:5234/api/Companies'; 
-  private ordersUrl = 'http://localhost:5234/api/orders';
-  private paymentsUrl = 'http://localhost:5234/api/payments';
+  private companiesUrl = `${environment.apiUrl}/api/Companies`; 
+  private ordersUrl = `${environment.apiUrl}/api/orders`;
+  private paymentsUrl = `${environment.apiUrl}/api/payments`;
 
   constructor(private http: HttpClient) {
     // Initial load from "API"
@@ -183,7 +184,10 @@ export class CompanyService {
           const companyIndex = companies.findIndex(c => c.companyName === rental.companyName);
           if (companyIndex !== -1) {
             const updatedCompanies = [...companies];
-            updatedCompanies[companyIndex].outstandingBalance = Math.max(0, updatedCompanies[companyIndex].outstandingBalance - rental.totalAmount);
+            updatedCompanies[companyIndex] = {
+              ...updatedCompanies[companyIndex],
+              outstandingBalance: Math.max(0, updatedCompanies[companyIndex].outstandingBalance - rental.totalAmount)
+            };
             this.companiesSubject.next(updatedCompanies);
           }
         }

@@ -1,6 +1,8 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 import { CompanyService, CompanyResponseDto, Machinery } from '../../services/company';
 import { ToastService } from '../../services/toast';
 import * as ExcelJS from 'exceljs';
@@ -106,7 +108,7 @@ export interface OrderLineItem {
              </div>
           </div>
 
-          <button type="submit" class="btn-premium action" [disabled]="!canAddToOrder">
+          <button type="submit" class="btn-premium action" [disabled]="!canAddToOrder || isProcessing">
             Add to Order
           </button>
         </form>
@@ -143,7 +145,7 @@ export interface OrderLineItem {
                 </td>
                 <td class="text-right font-mono">{{ item.lineTotal | currency }}</td>
                 <td class="text-right">
-                  <button class="btn-premium danger" (click)="removeItem(i)" style="height: 32px; padding: 0 1rem; font-size: 0.85rem;">Remove</button>
+                  <button class="btn-premium danger" (click)="removeItem(i)" [disabled]="isProcessing" style="height: 32px; padding: 0 1rem; font-size: 0.85rem;">Remove</button>
                 </td>
               </tr>
             </tbody>
@@ -155,7 +157,7 @@ export interface OrderLineItem {
             <span>Cart Total:</span>
             <span class="total-value">{{ cartGrandTotal | currency }}</span>
           </div>
-          <button class="btn-premium primary" (click)="processBulkOrder()">
+          <button class="btn-premium primary" (click)="processBulkOrder()" [disabled]="isProcessing">
             Process Bulk Order
           </button>
         </div>
@@ -343,12 +345,14 @@ export interface OrderLineItem {
     }
   `]
 })
-export class ClientPortalComponent implements OnInit {
+export class ClientPortalComponent implements OnInit, OnDestroy {
   private companyService = inject(CompanyService);
   private toastService = inject(ToastService);
+  private destroy$ = new Subject<void>();
 
   companies: CompanyResponseDto[] = [];
   machinery: Machinery[] = [];
+  isProcessing: boolean = false;
   
   selectedCompanyId: number = 0;
   selectedMachineId: number = 0;
@@ -374,9 +378,20 @@ export class ClientPortalComponent implements OnInit {
   completedOrderTotal: number = 0;
 
   ngOnInit(): void {
-    this.companyService.getCompanies().subscribe(data => this.companies = data);
-    this.companyService.getMachinery().subscribe(data => this.machinery = data);
+    this.companyService.getCompanies().pipe(takeUntil(this.destroy$)).subscribe({
+      next: data => this.companies = data,
+      error: () => this.toastService.show('Failed to fetch clients.', true)
+    });
+    this.companyService.getMachinery().pipe(takeUntil(this.destroy$)).subscribe({
+      next: data => this.machinery = data,
+      error: () => this.toastService.show('Failed to fetch machinery.', true)
+    });
     this.minDate = new Date().toISOString().split('T')[0];
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   onCompanyChange(): void {
@@ -469,6 +484,8 @@ export class ClientPortalComponent implements OnInit {
     const company = this.companies.find(c => c.companyId === Number(this.selectedCompanyId));
     if (!company) return;
 
+    this.isProcessing = true;
+
     // Cache the cart items so they can be exported after we clear the cart
     const exportedCart = [...this.cart];
     const exportedTotal = this.cartGrandTotal;
@@ -479,6 +496,7 @@ export class ClientPortalComponent implements OnInit {
       items: this.cart
     }).subscribe({
       next: (response: any) => {
+        this.isProcessing = false;
         if (response && response.result === 'SUCCESS') {
           this.invoiceId = (response.invoiceId && response.invoiceId !== 'INV-PENDING') ? response.invoiceId : `INV-${new Date().getTime()}`;
           this.lastProcessedCompany = company;
@@ -495,7 +513,11 @@ export class ClientPortalComponent implements OnInit {
           this.toastService.show('Transaction failed', true);
         }
       },
-      error: (err: any) => console.error('Portal validation checkout failed:', err)
+      error: (err: any) => {
+        this.isProcessing = false;
+        console.error('Portal validation checkout failed:', err);
+        this.toastService.show('Transaction failed', true);
+      }
     });
   }
 
@@ -611,7 +633,10 @@ export class ClientPortalComponent implements OnInit {
       anchor.href = url;
       anchor.download = `Invoice_${company.companyName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`;
       anchor.click();
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error(e);
+      this.toastService.show('Failed to generate document.', true);
+    }
   }
 
   async generatePDF(company: CompanyResponseDto): Promise<void> {
@@ -654,7 +679,10 @@ export class ClientPortalComponent implements OnInit {
       doc.text(`TOTAL DUE: $${this.completedOrderTotal.toFixed(2)}`, 140, finalY + 10);
 
       doc.save(`Invoice_${company.companyName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error(e);
+      this.toastService.show('Failed to generate document.', true);
+    }
   }
 
   closeExportModal(): void {
