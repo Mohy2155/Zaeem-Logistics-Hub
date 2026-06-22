@@ -8,6 +8,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
+import { environment } from '../environments/environment';
 
 export interface OrderLineItem {
   machineId: number;
@@ -68,6 +69,10 @@ export class App implements OnInit {
   lastProcessedCompany?: CompanyResponseDto;
   currentInvoiceNumber: string = '';
   toast$ = this.toastService.toast$;
+
+  get isDemoEnvironment(): boolean {
+    return environment.useMockData;
+  }
 
   ngOnInit(): void {
     this.loadData();
@@ -348,6 +353,14 @@ export class App implements OnInit {
         this.loadData();
       }
     });
+  }
+
+  // --- Utility ---
+  resetDemoData(): void {
+    if (confirm('Are you sure you want to reset all demo data? This will clear local storage and reload the page.')) {
+      localStorage.clear();
+      window.location.reload();
+    }
   }
 
   // --- Export Logic ---

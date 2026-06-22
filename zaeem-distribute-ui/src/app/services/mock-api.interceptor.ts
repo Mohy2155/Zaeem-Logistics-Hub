@@ -1,6 +1,7 @@
 import { HttpInterceptorFn, HttpResponse } from '@angular/common/http';
 import { of } from 'rxjs';
 import { delay } from 'rxjs/operators';
+import { environment } from '../../environments/environment';
 
 /**
  * Initialize localStorage helper
@@ -43,10 +44,7 @@ const initLocalStorage = () => {
  * 3. If in development (localhost), it passes requests through to the actual .NET API.
  */
 export const mockApiInterceptor: HttpInterceptorFn = (req, next) => {
-  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-
-  // Defensive Pass-through: If on localhost, do not touch the request.
-  if (isLocalhost) {
+  if (!environment.useMockData) {
     return next(req);
   }
 
@@ -70,7 +68,7 @@ export const mockApiInterceptor: HttpInterceptorFn = (req, next) => {
     } else if (url.includes('orders/rentals') && req.method === 'GET') {
       mockBody = JSON.parse(localStorage.getItem('zaeem_rentals') || '[]');
     } else if (url.includes('place-bulk-order')) {
-      const payload: any = req.body;
+      const payload: any = req.body || {};
       const companies = JSON.parse(localStorage.getItem('zaeem_companies') || '[]');
       const company = companies.find((c: any) => c.companyId === Number(payload.companyId));
       if (company) {
@@ -79,29 +77,35 @@ export const mockApiInterceptor: HttpInterceptorFn = (req, next) => {
         localStorage.setItem('zaeem_companies', JSON.stringify(companies));
 
         // Add items to rentals
-        if (payload.items && payload.items.length > 0) {
+        if (Array.isArray(payload.items) && payload.items.length > 0) {
           const rentals = JSON.parse(localStorage.getItem('zaeem_rentals') || '[]');
           const newRentals = payload.items.map((item: any) => ({
             rentalItemId: Math.floor(Math.random() * 10000) + 1000,
-            machineId: item.machineId,
-            machineName: item.machineName,
+            machineId: item?.machineId,
+            machineName: item?.machineName,
             companyName: company.companyName,
-            plateNumber: item.plateNumber || 'DX-' + Math.floor(Math.random() * 9000 + 1000),
-            startDate: item.startDate,
-            endDate: item.endDate,
-            dailyRate: item.dailyRate,
-            discount: item.discount,
-            totalAmount: item.lineTotal,
+            plateNumber: item?.plateNumber || 'DX-' + Math.floor(Math.random() * 9000 + 1000),
+            startDate: item?.startDate,
+            endDate: item?.endDate,
+            dailyRate: item?.dailyRate || 0,
+            discount: item?.discount || 0,
+            totalAmount: item?.lineTotal || 0,
             status: 'Active',
-            taxType: item.taxType,
-            taxPercent: item.taxPercent
+            taxType: item?.taxType || 'VAT',
+            taxPercent: item?.taxPercent !== undefined ? item.taxPercent : (item?.taxRate || 0)
           }));
           localStorage.setItem('zaeem_rentals', JSON.stringify([...rentals, ...newRentals]));
         }
       }
-      mockBody = { result: 'SUCCESS', orderId: Math.floor(Math.random() * 10000), invoiceId: 'INV-' + Math.floor(Math.random() * 9000 + 1000) };
+      
+      let seq = Number(localStorage.getItem('zaeem_invoice_seq')) || 1;
+      const formattedSeq = seq.toString().padStart(3, '0');
+      const newInvoiceId = `INV-${formattedSeq}`;
+      localStorage.setItem('zaeem_invoice_seq', (seq + 1).toString());
+      
+      mockBody = { result: 'SUCCESS', orderId: Math.floor(Math.random() * 10000), invoiceId: newInvoiceId };
     } else if (url.includes('payments/record')) {
-      const payload: any = req.body;
+      const payload: any = req.body || {};
       const companies = JSON.parse(localStorage.getItem('zaeem_companies') || '[]');
       const company = companies.find((c: any) => c.companyId === Number(payload.companyId));
       if (company) {
@@ -126,10 +130,10 @@ export const mockApiInterceptor: HttpInterceptorFn = (req, next) => {
       mockBody = JSON.parse(localStorage.getItem('zaeem_receipts') || '[]');
     } else if (url.includes('orders/rentals') && req.method === 'DELETE') {
       const parts = url.split('/');
-      const rentalItemId = Number(parts[parts.length - 1]);
+      const rentalItemId = parts[parts.length - 1];
       
       const rentals = JSON.parse(localStorage.getItem('zaeem_rentals') || '[]');
-      const rentalIndex = rentals.findIndex((r: any) => r.rentalItemId === rentalItemId || r.id === rentalItemId.toString());
+      const rentalIndex = rentals.findIndex((r: any) => r.rentalItemId?.toString() === rentalItemId || r.id?.toString() === rentalItemId);
       
       if (rentalIndex !== -1) {
         const rental = rentals[rentalIndex];
@@ -150,12 +154,12 @@ export const mockApiInterceptor: HttpInterceptorFn = (req, next) => {
     } else if (url.includes('/orders/cancel/')) {
       // Fetch associated rental to modify state
       const parts = url.split('/');
-      const orderId = Number(parts[parts.length - 1]);
+      const orderId = parts[parts.length - 1];
       // Optional: find and cancel the rental in mock store
       const rentals = JSON.parse(localStorage.getItem('zaeem_rentals') || '[]');
-      const rental = rentals.find((r: any) => r.orderId === orderId || r.rentalItemId === orderId);
-      if (rental) {
-        rental.status = 'Cancelled';
+      const rentalIndex = rentals.findIndex((r: any) => r.orderId?.toString() === orderId || r.rentalItemId?.toString() === orderId);
+      if (rentalIndex !== -1) {
+        rentals[rentalIndex].status = 'Cancelled';
         localStorage.setItem('zaeem_rentals', JSON.stringify(rentals));
       }
       mockBody = { message: 'Order cancelled successfully' };

@@ -18,7 +18,11 @@ import { CompanyService, ActiveRental, Machinery } from '../../services/company'
         <div class="scope-header">
           <div class="scope-info">
             <h3>Rental Timeline Overview</h3>
-            <p class="text-muted">Displays active machinery deployments across the current scheduling window.</p>
+            <p class="text-muted" style="margin-bottom: 1rem;">Displays active machinery deployments across the current scheduling window.</p>
+            <div style="display: flex; gap: 1rem;">
+              <button class="btn-text" (click)="navigateScheduler(-14)" style="padding: 0.5rem 1rem; border: 1px solid #cbd5e1; border-radius: 8px; cursor: pointer; background: white; font-weight: 600;">&lt; Previous 14 Days</button>
+              <button class="btn-text" (click)="navigateScheduler(14)" style="padding: 0.5rem 1rem; border: 1px solid #cbd5e1; border-radius: 8px; cursor: pointer; background: white; font-weight: 600;">Next 14 Days &gt;</button>
+            </div>
           </div>
           <div class="legend">
             <span class="legend-item"><span class="color-dot active"></span> Deployments</span>
@@ -199,7 +203,7 @@ import { CompanyService, ActiveRental, Machinery } from '../../services/company'
     .timeline-col {
       flex-grow: 1;
       display: grid;
-      grid-template-columns: repeat(7, 1fr);
+      grid-template-columns: repeat(14, 1fr);
       position: relative;
     }
 
@@ -294,22 +298,38 @@ export class SchedulerComponent implements OnInit {
   daysRange: Date[] = [];
   fleetSchedule: { name: string; category: string; rentals: any[] }[] = [];
 
+  viewportOffsetDays: number = 0;
+  rawMachinery: Machinery[] = [];
+  rawRentals: ActiveRental[] = [];
+
   ngOnInit(): void {
-    this.setupDaysRange();
-    
     this.companyService.getMachinery().subscribe(machinery => {
       this.companyService.getRentals().subscribe(rentals => {
-        this.buildSchedule(machinery, rentals);
+        this.rawMachinery = machinery;
+        this.rawRentals = rentals;
+        this.refreshScheduler();
       });
     });
   }
 
+  navigateScheduler(offset: number): void {
+    this.viewportOffsetDays += offset;
+    this.refreshScheduler();
+  }
+
+  refreshScheduler(): void {
+    this.setupDaysRange();
+    this.buildSchedule(this.rawMachinery, this.rawRentals);
+  }
+
   setupDaysRange(): void {
     const range: Date[] = [];
-    const today = new Date('2026-06-22T00:00:00');
-    today.setHours(0,0,0,0);
-    // Use a 7-day view starting from June 22, 2026
-    for (let i = 0; i < 7; i++) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    today.setDate(today.getDate() + this.viewportOffsetDays);
+    
+    // Use a 14-day view
+    for (let i = 0; i < 14; i++) {
       const d = new Date(today);
       d.setDate(today.getDate() + i);
       range.push(d);
@@ -319,18 +339,26 @@ export class SchedulerComponent implements OnInit {
 
   buildSchedule(machinery: Machinery[], rentals: ActiveRental[]): void {
     const activeRentals = rentals.filter(r => r.status !== 'Cancelled' && r.status !== 'Returned');
-    const startWindow = this.daysRange[0];
-    const endWindow = this.daysRange[this.daysRange.length - 1];
+    const startWindow = new Date(this.daysRange[0]);
+    startWindow.setHours(0,0,0,0);
+    const endWindow = new Date(this.daysRange[this.daysRange.length - 1]);
+    endWindow.setHours(0,0,0,0);
 
     this.fleetSchedule = machinery.map(machine => {
-      // Find rentals for this specific machine
       const machineRentals = activeRentals.filter(r => r.machineName.toLowerCase().includes(machine.name.toLowerCase()) || machine.name.toLowerCase().includes(r.machineName.toLowerCase()));
 
       const formattedRentals = machineRentals.map(r => {
         const start = new Date(r.startDate);
+        start.setHours(0,0,0,0);
         const end = new Date(r.endDate);
+        end.setHours(0,0,0,0);
 
-        // Clamp dates to the current 7-day window for rendering
+        // Filter out if completely outside the 14-day window
+        if (end < startWindow || start > endWindow) {
+          return null;
+        }
+
+        // Clamp dates to the current window for rendering
         const clampedStart = start < startWindow ? startWindow : start;
         const clampedEnd = end > endWindow ? endWindow : end;
 
@@ -340,14 +368,14 @@ export class SchedulerComponent implements OnInit {
         const widthMs = clampedEnd.getTime() - clampedStart.getTime() + 24 * 60 * 60 * 1000;
 
         const leftPercent = Math.max(0, Math.min(100, (leftMs / totalDurationMs) * 100));
-        const widthPercent = Math.max(5, Math.min(100 - leftPercent, (widthMs / totalDurationMs) * 100));
+        const widthPercent = Math.max(0, Math.min(100 - leftPercent, (widthMs / totalDurationMs) * 100));
 
         return {
           ...r,
           leftPercent,
           widthPercent
         };
-      });
+      }).filter(r => r !== null);
 
       return {
         name: machine.name,

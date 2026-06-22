@@ -69,10 +69,15 @@
               ]
             },
             "prod-demo": {
+              "baseHref": "/Zaeem-Logistics-Hub/",
               "fileReplacements": [
                 {
                   "replace": "src/app/services/company.ts",
                   "with": "src/app/services/fleet.mock.ts"
+                },
+                {
+                  "replace": "src/environments/environment.ts",
+                  "with": "src/environments/environment.prod-demo.ts"
                 }
               ],
               "optimization": true,

@@ -36,7 +36,7 @@ export interface OrderLineItem {
         <form (submit)="$event.preventDefault(); addToOrder()" class="order-form">
           <div class="form-group">
             <label>Client / Partner</label>
-            <select [(ngModel)]="selectedCompanyId" (change)="onCompanyChange()" name="companyId" required>
+            <select [(ngModel)]="selectedCompanyId" (change)="onCompanyChange()" name="companyId" required [disabled]="cart.length > 0">
               <option value="0" disabled selected>Select a client...</option>
               <option *ngFor="let c of companies" [value]="c.companyId">
                 {{ c.companyName }}
@@ -107,17 +107,20 @@ export interface OrderLineItem {
           </div>
 
           <button type="submit" class="btn-premium action" [disabled]="!canAddToOrder">
-            <span>➕</span> Add to Order
+            Add to Order
           </button>
         </form>
       </section>
 
       <!-- Cart Summary Card -->
       <section class="polished-card cart-section" *ngIf="cart.length > 0">
-        <header class="card-header">
+        <header class="card-header" style="margin-bottom: 0.5rem; border-bottom: none; padding-bottom: 0;">
           <h3>Order Summary</h3>
           <span class="badge">{{ cart.length }} Item(s)</span>
         </header>
+        <div class="locked-company-header" style="padding: 0 0 1rem 0; font-weight: 700; color: #0f172a; font-size: 0.9rem; border-bottom: 1px solid rgba(226, 232, 240, 0.6); margin-bottom: 1rem;">
+          Target Client: {{ lockedCompanyName }}
+        </div>
 
         <div class="ledger-table-container mini-table">
           <table class="premium-table">
@@ -140,7 +143,7 @@ export interface OrderLineItem {
                 </td>
                 <td class="text-right font-mono">{{ item.lineTotal | currency }}</td>
                 <td class="text-right">
-                  <button class="btn-text" (click)="removeItem(i)">✕</button>
+                  <button class="btn-premium danger" (click)="removeItem(i)" style="height: 32px; padding: 0 1rem; font-size: 0.85rem;">Remove</button>
                 </td>
               </tr>
             </tbody>
@@ -153,7 +156,7 @@ export interface OrderLineItem {
             <span class="total-value">{{ cartGrandTotal | currency }}</span>
           </div>
           <button class="btn-premium primary" (click)="processBulkOrder()">
-            🚀 Process Bulk Order
+            Process Bulk Order
           </button>
         </div>
       </section>
@@ -171,13 +174,13 @@ export interface OrderLineItem {
         
         <div class="modal-actions">
           <button class="btn-premium action" (click)="generateInvoice(lastProcessedCompany!)">
-             📊 Download Excel Spreadsheet
+             Download Excel Spreadsheet
           </button>
           <button class="btn-premium primary" (click)="generatePDF(lastProcessedCompany!)">
-             📄 Download PDF Document
+             Download PDF Document
           </button>
-          <button class="btn-text" (click)="closeExportModal()" style="margin-top: 1rem;">
-            Dismiss
+          <button class="btn-premium secondary" (click)="closeExportModal()" style="margin-top: 1rem; width: 100%;">
+            Close
           </button>
         </div>
       </div>
@@ -285,6 +288,26 @@ export interface OrderLineItem {
       transform: translateY(-1px);
       box-shadow: 0 6px 16px rgba(16, 185, 129, 0.35);
     }
+    .btn-premium.danger {
+      background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+      color: #ffffff !important;
+      box-shadow: 0 4px 12px rgba(239, 68, 68, 0.25);
+    }
+    .btn-premium.danger:hover:not(:disabled) {
+      background: linear-gradient(135deg, #dc2626, #b91c1c) !important;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(239, 68, 68, 0.35);
+    }
+    .btn-premium.secondary {
+      background: #f1f5f9 !important;
+      color: #475569 !important;
+      border: 1px solid #cbd5e1;
+      box-shadow: none;
+    }
+    .btn-premium.secondary:hover:not(:disabled) {
+      background: #e2e8f0 !important;
+      color: #0f172a !important;
+    }
     .btn-premium:disabled {
       opacity: 0.5;
       cursor: not-allowed;
@@ -346,6 +369,9 @@ export class ClientPortalComponent implements OnInit {
   showExportModal: boolean = false;
   lastProcessedCompany?: CompanyResponseDto;
   invoiceId: string = '';
+  
+  completedOrderItems: OrderLineItem[] = [];
+  completedOrderTotal: number = 0;
 
   ngOnInit(): void {
     this.companyService.getCompanies().subscribe(data => this.companies = data);
@@ -382,6 +408,11 @@ export class ClientPortalComponent implements OnInit {
     }
   }
 
+  get lockedCompanyName(): string {
+    const company = this.companies.find(c => c.companyId === Number(this.selectedCompanyId));
+    return company ? company.companyName : 'Pending Selection...';
+  }
+
   get isEndDateValid(): boolean {
     if (!this.startDate || !this.endDate) return true;
     return new Date(this.endDate) > new Date(this.startDate);
@@ -401,6 +432,11 @@ export class ClientPortalComponent implements OnInit {
     if (!this.canAddToOrder) return;
     const machine = this.machinery.find(m => m.id === Number(this.selectedMachineId));
     if (!machine) return;
+
+    if (this.cart.some(item => item.machineId === machine.id)) {
+      this.toastService.show('Scheduling Conflict: This specific machinery is already in your active order.', true);
+      return;
+    }
 
     this.cart.push({
       machineId: machine.id,
@@ -444,11 +480,15 @@ export class ClientPortalComponent implements OnInit {
     }).subscribe({
       next: (response: any) => {
         if (response && response.result === 'SUCCESS') {
-          this.invoiceId = response.invoiceId || 'INV-PENDING';
+          this.invoiceId = (response.invoiceId && response.invoiceId !== 'INV-PENDING') ? response.invoiceId : `INV-${new Date().getTime()}`;
           this.lastProcessedCompany = company;
-          // Temporarily restore for invoice generation session, then clear
-          this.cart = exportedCart;
-          this.cartGrandTotal = exportedTotal;
+          
+          this.completedOrderItems = exportedCart;
+          this.completedOrderTotal = exportedTotal;
+          
+          this.cart = [];
+          this.cartGrandTotal = 0;
+          
           this.showExportModal = true;
           this.toastService.show('Bulk Order Processed Successfully');
         } else {
@@ -505,7 +545,7 @@ export class ClientPortalComponent implements OnInit {
         cell.alignment = { horizontal: 'center' };
       });
 
-      this.cart.forEach((item, i) => {
+      this.completedOrderItems.forEach((item, i) => {
         const currentRowNum = 11 + i;
         const row = worksheet.getRow(currentRowNum);
         row.values = {
@@ -542,12 +582,12 @@ export class ClientPortalComponent implements OnInit {
         row.commit();
       });
 
-      const lastItemRow = 10 + this.cart.length;
+      const lastItemRow = 10 + this.completedOrderItems.length;
       const subtotalRowIndex = lastItemRow + 2;
       const subtotalRow = worksheet.getRow(subtotalRowIndex);
       subtotalRow.getCell(9).value = 'TOTAL DUE:';
       subtotalRow.getCell(9).font = { bold: true };
-      subtotalRow.getCell(10).value = this.cartGrandTotal;
+      subtotalRow.getCell(10).value = this.completedOrderTotal;
       subtotalRow.getCell(10).numFmt = '"$"#,##0.00';
 
       // Auto-fit columns dynamically at runtime using column max-length calculations plus safety padding
@@ -571,7 +611,6 @@ export class ClientPortalComponent implements OnInit {
       anchor.href = url;
       anchor.download = `Invoice_${company.companyName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`;
       anchor.click();
-      this.closeExportModal();
     } catch (e) { console.error(e); }
   }
 
@@ -587,7 +626,7 @@ export class ClientPortalComponent implements OnInit {
       doc.text(`DATE: ${new Date().toLocaleDateString()}`, 14, 40);
       doc.text(`INVOICE NO: ${this.invoiceId}`, 14, 45);
 
-      const body = this.cart.map((item, index) => [
+      const body = this.completedOrderItems.map((item, index) => [
         index + 1,
         item.machineName,
         item.plateNumber,
@@ -612,17 +651,16 @@ export class ClientPortalComponent implements OnInit {
       const finalY = (doc as any).lastAutoTable.finalY || 150;
       doc.setFontSize(10);
       doc.setTextColor(30, 41, 59);
-      doc.text(`TOTAL DUE: $${this.cartGrandTotal.toFixed(2)}`, 140, finalY + 10);
+      doc.text(`TOTAL DUE: $${this.completedOrderTotal.toFixed(2)}`, 140, finalY + 10);
 
       doc.save(`Invoice_${company.companyName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
-      this.closeExportModal();
     } catch (e) { console.error(e); }
   }
 
   closeExportModal(): void {
     this.showExportModal = false;
-    this.cart = [];
-    this.cartGrandTotal = 0;
+    this.completedOrderItems = [];
+    this.completedOrderTotal = 0;
   }
 
   private resetFormSelection(): void {

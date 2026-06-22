@@ -35,6 +35,9 @@
           <span class="role">System Executive</span>
         </div>
       </div>
+      <button *ngIf="isDemoEnvironment" class="btn-text" (click)="resetDemoData()" style="color: #ef4444; width: 100%; text-align: left; padding: 1rem; border-top: 1px solid rgba(255,255,255,0.1); margin-top: 1rem; cursor: pointer;">
+        Reset Demo Data
+      </button>
     </div>
   </aside>
 

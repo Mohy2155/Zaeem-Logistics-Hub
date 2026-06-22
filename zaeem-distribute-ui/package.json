@@ -6,6 +6,7 @@
     "start": "ng serve",
     "build": "ng build",
     "deploy": "ng build --base-href /Zaeem-Logistics-Hub/ && npx angular-cli-ghpages --dir dist/zaeem-distribute-ui/browser",
+    "build:demo": "ng build --configuration=prod-demo --base-href=/Zaeem-Logistics-Hub/",
     "watch": "ng build --watch --configuration development",
     "test": "ng test"
   },
