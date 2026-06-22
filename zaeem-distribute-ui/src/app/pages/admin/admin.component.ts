@@ -288,21 +288,102 @@ export class AdminDashboardComponent implements OnInit {
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet('Payment Receipt');
       
-      worksheet.getCell('A1').value = 'ZAEEM DISTRIBUTE';
-      worksheet.getCell('A1').font = { bold: true, size: 16 };
-      worksheet.getCell('A2').value = 'OFFICIAL PAYMENT RECEIPT';
+      // Force grid lines visibility
+      worksheet.views = [{ showGridLines: true }];
+
+      // ZAEEM LOGISTICS HUB header row
+      const titleRow = worksheet.addRow(['ZAEEM LOGISTICS HUB']);
+      titleRow.font = { name: 'Arial', family: 2, size: 16, bold: true, color: { argb: 'FFF8FAFC' } };
       
-      worksheet.getCell('A4').value = 'RECEIPT NO:';
-      worksheet.getCell('B4').value = this.receiptId;
-      worksheet.getCell('A5').value = 'DATE:';
-      worksheet.getCell('B5').value = new Date().toLocaleDateString();
+      const cellA1 = worksheet.getCell('A1');
+      cellA1.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF1E293B' } // Dark Slate '#1E293B'
+      };
       
-      worksheet.getCell('A7').value = 'RECEIVED FROM:';
-      worksheet.getCell('B7').value = this.lastPaymentCompany.companyName;
-      worksheet.getCell('A8').value = 'AMOUNT PAID:';
-      worksheet.getCell('B8').value = this.lastPaymentAmount;
-      worksheet.getCell('B8').numFmt = '"$"#,##0.00';
+      // Subtitle
+      const subtitleRow = worksheet.addRow(['Official Payment Receipt & Statement']);
+      subtitleRow.font = { name: 'Arial', family: 2, size: 10, italic: true, color: { argb: 'FF64748B' } };
       
+      worksheet.addRow([]); // Blank row
+      
+      // Metadata headers
+      const metaHeader = worksheet.addRow(['Financial Category', 'Transaction Details']);
+      metaHeader.font = { name: 'Arial', family: 2, size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
+      metaHeader.eachCell(cell => {
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FF1E293B' } // Dark Slate '#1E293B'
+        };
+        cell.border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'medium' },
+          right: { style: 'thin' }
+        };
+      });
+
+      // Data Rows
+      const rowsData = [
+        ['Receipt Reference', this.receiptId],
+        ['Transaction Date', new Date().toLocaleString()],
+        ['Paying Client / Partner', this.lastPaymentCompany.companyName],
+        ['Ledger Account ID', `#${this.lastPaymentCompany.companyId}`],
+        ['Transaction Amount', this.lastPaymentAmount],
+        ['Remaining Outstanding Balance', this.lastPaymentCompany.outstandingBalance]
+      ];
+
+      rowsData.forEach((data, index) => {
+        const row = worksheet.addRow(data);
+        row.font = { name: 'Arial', family: 2, size: 10 };
+        
+        // Zebra striping: use soft slate '#F1F5F9' for alternate rows
+        const isAlternate = index % 2 === 1;
+        const bgColor = isAlternate ? 'FFF1F5F9' : 'FFFFFFFF';
+        
+        row.eachCell((cell, colNumber) => {
+          cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: bgColor }
+          };
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+          };
+
+          // Explicit currency formatting for amount columns
+          if (data[0] === 'Transaction Amount' || data[0] === 'Remaining Outstanding Balance') {
+            if (colNumber === 2) {
+              cell.numFmt = '$#,##0.00';
+            }
+          }
+        });
+      });
+
+      worksheet.addRow([]); // Blank row
+      
+      const footerRow = worksheet.addRow(['Thank you for your business. For billing queries, contact finance@zaeem.com.']);
+      footerRow.font = { name: 'Arial', family: 2, size: 9, italic: true, color: { argb: 'FF94A3B8' } };
+
+      // Auto-fit columns dynamically at runtime using column max-length calculations plus safety padding
+      worksheet.columns.forEach(column => {
+        if (column && column.eachCell) {
+          let maxLength = 0;
+          column.eachCell({ includeEmpty: true }, cell => {
+            const val = cell.value ? cell.value.toString() : '';
+            if (val.length > maxLength) {
+              maxLength = val.length;
+            }
+          });
+          column.width = maxLength < 12 ? 15 : maxLength + 4; // Add safety padding
+        }
+      });
+
       const buffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
       const url = window.URL.createObjectURL(blob);
