@@ -7,6 +7,8 @@ import * as ExcelJS from 'exceljs';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
+import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
+
 export interface OrderLineItem {
   machineId: number;
   companyName: string; // Added to map company name to pending cart
@@ -26,7 +28,7 @@ export interface OrderLineItem {
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RouterOutlet, RouterLink, RouterLinkActive],
   templateUrl: './app.html',
   styleUrl: './app.scss'
 })

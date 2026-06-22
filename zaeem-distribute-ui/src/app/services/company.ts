@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, BehaviorSubject, of } from 'rxjs';
-import { map, tap, delay } from 'rxjs/operators';
+import { map, tap, delay, catchError } from 'rxjs/operators';
 
 export interface CompanyResponseDto {
   companyId: number;
@@ -16,6 +16,7 @@ export interface ActiveRental {
   orderId?: number; // Added to link to backend order
   companyName: string;
   machineName: string;
+  plateNumber?: string;
   startDate: string;
   endDate: string;
   dailyRate: number;
@@ -94,7 +95,25 @@ export class CompanyService {
   }
 
   getRentals(): Observable<ActiveRental[]> {
-    return this.rentals$.pipe(delay(500));
+    return this.http.get<any[]>(`${this.ordersUrl}/rentals`).pipe(
+      map(items => items.map(item => ({
+        id: item.rentalItemId.toString(),
+        orderId: item.rentalItemId,
+        companyName: item.companyName,
+        machineName: item.machineName,
+        plateNumber: item.plateNumber,
+        startDate: item.startDate,
+        endDate: item.endDate,
+        dailyRate: item.dailyRate,
+        discount: item.discount,
+        totalAmount: item.totalAmount,
+        status: item.status
+      }))),
+      tap(data => this.rentalsSubject.next(data)),
+      catchError(() => {
+        return this.rentals$;
+      })
+    );
   }
 
   // Increases balance and total billed for post-paid B2B simulation
@@ -184,6 +203,17 @@ export class CompanyService {
             this.companiesSubject.next(updatedCompanies);
           }
         }
+      })
+    );
+  }
+
+  getReceipts(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.paymentsUrl}/receipts`).pipe(
+      catchError(() => {
+        return of([
+          { receiptId: 'REC-1001', companyId: 1, companyName: 'Build-It Corp', amount: 5000, paymentDate: new Date(Date.now() - 24*60*60*1000).toISOString() },
+          { receiptId: 'REC-1002', companyId: 2, companyName: 'Swift Logistics', amount: 15000, paymentDate: new Date(Date.now() - 12*24*60*60*1000).toISOString() }
+        ]);
       })
     );
   }

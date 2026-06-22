@@ -10,9 +10,21 @@
     </div>
     
     <nav class="sidebar-nav">
-      <div class="nav-item active">
-        <span class="label">Main Command Console</span>
-      </div>
+      <a routerLink="/portal" routerLinkActive="active" class="nav-item">
+        <span class="label">Client Portal</span>
+      </a>
+      <a routerLink="/admin" routerLinkActive="active" class="nav-item">
+        <span class="label">Admin Ledger</span>
+      </a>
+      <a routerLink="/dashboard" routerLinkActive="active" class="nav-item">
+        <span class="label">Operations Dashboard</span>
+      </a>
+      <a routerLink="/scheduler" routerLinkActive="active" class="nav-item">
+        <span class="label">Machinery Scheduler</span>
+      </a>
+      <a routerLink="/payments" routerLinkActive="active" class="nav-item">
+        <span class="label">Payments Portal</span>
+      </a>
     </nav>
     
     <div class="sidebar-footer">
@@ -28,298 +40,10 @@
 
   <!-- Main Workspace -->
   <main class="main-content">
-    <!-- Section A: Client Panel (Left Half) -->
-    <div class="client-panel">
-      <!-- Header Module -->
-      <header class="content-header">
-        <div class="breadcrumb">Executive Dashboard / Operations</div>
-        <h2>Client Portal</h2>
-      </header>
-
-      <!-- Order Form Module -->
-      <section class="ui-card">
-        <header class="card-header">
-          <h3>Fleet Selection and Booking</h3>
-        </header>
-        
-        <form (submit)="$event.preventDefault(); addToOrder()" class="order-form">
-          <div class="form-group">
-            <label>Client Entity</label>
-            <select [(ngModel)]="selectedCompanyId" (change)="onCompanyChange()" [disabled]="cart && cart.length > 0" name="companyId" required>
-              <option value="0" disabled selected>Select partner company</option>
-              <option *ngFor="let c of companies" [value]="c.companyId">{{ c.companyName }}</option>
-            </select>
-          </div>
-
-          <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem;">
-            <div class="form-group">
-              <label>Machinery Type</label>
-              <select [(ngModel)]="selectedMachineId" (change)="onFormChange()" name="machineId" required>
-                <option value="0" disabled selected>Choose equipment</option>
-                <option *ngFor="let m of machinery" [value]="m.id">{{ m.name }} ({{ m.dailyRate | currency }}/day)</option>
-              </select>
-            </div>
-            
-            <div class="form-group">
-              <label>Discount (%)</label>
-              <input type="number" [(ngModel)]="discountPercent" (change)="onFormChange()" name="discountPercent" placeholder="0" min="0" max="100" />
-            </div>
-          </div>
-
-          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem;">
-            <div class="form-group">
-              <label>Tax Type</label>
-              <input type="text" [(ngModel)]="taxType" (change)="onFormChange()" name="taxType" placeholder="VAT" />
-            </div>
-            <div class="form-group">
-              <label>Tax (%)</label>
-              <input type="number" [(ngModel)]="taxPercent" (change)="onFormChange()" name="taxPercent" placeholder="0" min="0" max="100" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">PLATE NUMBER</label>
-              <input 
-                type="text" 
-                class="form-input" 
-                [(ngModel)]="activePlateNumber" 
-                placeholder="e.g., DX-99431"
-                name="plateNumber" />
-            </div>
-          </div>
-
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
-            <div class="form-group">
-              <label>Hire Commencement</label>
-              <input type="date" [(ngModel)]="startDate" (change)="onFormChange()" name="startDate" [min]="minDate" required />
-            </div>
-            <div class="form-group">
-              <label>Hire Conclusion</label>
-              <input type="date" [(ngModel)]="endDate" (change)="onFormChange()" name="endDate" [min]="startDate || minDate" required />
-            </div>
-          </div>
-
-          <div class="cost-summary-box" *ngIf="previewTotal > 0">
-             <div class="summary-line">
-               <span>Duration:</span>
-               <strong>{{ previewDays }} Business Days</strong>
-             </div>
-             <div class="summary-line">
-               <span>Original Price:</span>
-               <strong>{{ previewOriginalPrice | currency }}</strong>
-             </div>
-             <div class="summary-line" *ngIf="discountPercent > 0">
-               <span>Applied Discount:</span>
-               <strong class="text-success">{{ discountPercent }}% Off</strong>
-             </div>
-             <div class="summary-line" *ngIf="taxPercent > 0">
-                <span>{{ taxType }} ({{ taxPercent }}%):</span>
-                <strong class="text-info">+{{ (previewTotal - (previewTotal / (1 + (taxPercent/100)))) | currency }}</strong>
-             </div>
-             <div class="summary-line">
-               <span>Projected Net Total:</span>
-               <strong class="text-success">{{ previewTotal | currency }}</strong>
-             </div>
-          </div>
-
-          <button type="submit" class="btn-premium action" [disabled]="!canAddToOrder">
-            Commit to Order
-          </button>
-        </form>
-      </section>
-
-      <!-- Cart Module -->
-      <section class="ui-card" *ngIf="cart.length > 0">
-        <header class="card-header">
-          <h3>Pending Bulk Order</h3>
-          <span class="badge">{{ cart.length }} line items</span>
-        </header>
-
-        <div class="table-container">
-          <table class="premium-table">
-            <thead>
-              <tr>
-                <th>Description</th>
-                <th class="text-right">Original</th>
-                <th class="text-right">Discount</th>
-                <th class="text-right">Tax</th>
-                <th class="text-right">Line Total</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let item of cart; let i = index">
-                <td>
-                  <div style="font-weight: 600;">[{{ item.companyName }}] - {{ item.machineName }}</div>
-                  <div style="font-size: 0.75rem; color: #64748b;">{{ item.rentalDays }} day hire</div>
-                </td>
-                <td class="text-right">{{ item.originalPrice | currency }}</td>
-                <td class="text-right text-danger">
-                  -{{ (item.originalPrice * item.discount / 100) | currency }}
-                  <small style="display: block; font-size: 0.7rem;">({{ item.discount }}%)</small>
-                </td>
-                <td class="text-right text-info">
-                  +{{ ((item.originalPrice * (1 - item.discount/100)) * item.taxPercent / 100) | currency }}
-                  <small style="display: block; font-size: 0.7rem;">({{ item.taxPercent }}% {{ item.taxType }})</small>
-                </td>
-                <td class="text-right" style="font-family: monospace; font-weight: 700;">{{ item.lineTotal | currency }}</td>
-                <td class="text-right">
-                  <button class="btn-text" (click)="removeLineItem(item)">Cancel</button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div style="padding: 1.75rem; border-top: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 0.75rem;">
-          <div style="display: flex; justify-content: space-between; color: #64748b;">
-            <span>Original Subtotal:</span>
-            <span>{{ getCartOriginalTotal() | currency }}</span>
-          </div>
-          <div style="display: flex; justify-content: space-between; color: #ef4444;">
-            <span>Projected Discount:</span>
-            <span>-{{ getCartDiscountTotal() | currency }}</span>
-          </div>
-          <div style="display: flex; justify-content: space-between; color: #0ea5e9;">
-            <span>Tax ({{ cartTaxType }} {{ cartTaxPercent }}%):</span>
-            <span>+{{ getCartTaxTotal() | currency }}</span>
-          </div>
-          <div style="display: flex; justify-content: space-between; font-size: 1.5rem; margin-top: 0.5rem; border-top: 1px dashed #e2e8f0; padding-top: 0.75rem;">
-            <span style="color: #0f172a; font-weight: 600;">Final Net Total:</span>
-            <strong style="color: #0f172a;">{{ cartGrandTotal | currency }}</strong>
-          </div>
-          <button class="btn-premium primary" (click)="finalizeOrder()" style="margin-top: 1rem;">
-            FINALIZE AND GENERATE INVOICES
-          </button>
-        </div>
-      </section>
-    </div>
-
-    <!-- Section B: Admin Panel (Right Half) -->
-    <div class="admin-panel">
-      <header class="content-header">
-        <div class="breadcrumb">Executive Dashboard / Ledger</div>
-        <h2>Administration</h2>
-      </header>
-
-      <!-- Ledger Table Module -->
-      <section class="ui-card">
-        <header class="card-header">
-          <h3>Executive Corporate Ledger</h3>
-        </header>
-        
-        <div class="table-container">
-          <table class="premium-table">
-            <thead>
-              <tr>
-                <th>Partner</th>
-                <th class="text-right">Outstanding</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let company of companies">
-                <td style="font-weight: 600;">{{ company.companyName }}</td>
-                <td class="text-right" style="font-family: monospace; font-weight: 700;" [class.text-danger]="company.outstandingBalance > 100000">
-                  {{ company.outstandingBalance | currency }}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <!-- Historical Deployments Module -->
-      <section class="ui-card">
-        <header class="card-header">
-          <h3>Historical Deployments</h3>
-        </header>
-        
-        <div class="table-container">
-          <table class="premium-table">
-            <thead>
-              <tr>
-                <th>Deployment</th>
-                <th class="text-right">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let item of rentals; let i = index">
-                <td>
-                  <div class="deployment-title" style="font-weight: 600;">
-                    {{ item.companyName || 'Swift Logistics' }} - {{ item.machineName }}
-                  </div>
-                  <div style="font-size: 0.75rem; color: #64748b;">{{ item.startDate | date:'shortDate' }} - {{ item.endDate | date:'shortDate' }}</div>
-                </td>
-                <td class="text-right">
-                  <span class="status-badge" [ngClass]="(item.status || getRentalStatus(item.startDate, item.endDate)).toLowerCase()">
-                    {{ item.status || getRentalStatus(item.startDate, item.endDate) }}
-                  </span>
-                  <button *ngIf="getRentalStatus(item.startDate, item.endDate, item.status) === 'Scheduled'" 
-                          class="btn-text" 
-                          (click)="cancelProcessedOrder(item.orderId!, item.id)" 
-                          style="margin-left: 0.5rem; color: #ef4444; font-size: 0.7rem; vertical-align: middle;">
-                    [Cancel]
-                  </button>
-                </td>
-              </tr>
-              <tr *ngIf="rentals.length === 0">
-                <td colspan="2" style="text-align: center; color: #64748b; font-size: 0.85rem; padding: 1rem;">
-                  No historical records found.
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <!-- Payment Module -->
-      <section class="ui-card">
-        <header class="card-header">
-          <h3>Record Received Funds</h3>
-        </header>
-        
-        <form (submit)="$event.preventDefault(); recordPayment()" class="admin-form">
-          <div class="form-group">
-            <label>Remitting Partner</label>
-            <select [(ngModel)]="selectedAdminCompanyId" name="adminCompanyId" required>
-              <option value="0" disabled selected>Select company</option>
-              <option *ngFor="let c of companies" [value]="c.companyId">{{ c.companyName }}</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label>Transaction Amount ($)</label>
-            <input type="number" [(ngModel)]="paymentAmount" name="paymentAmount" placeholder="0.00" min="1" required />
-          </div>
-
-          <button type="submit" class="btn-premium action" [disabled]="selectedAdminCompanyId === 0 || paymentAmount <= 0">
-            Register Payment
-          </button>
-        </form>
-      </section>
-    </div>
+    <router-outlet></router-outlet>
   </main>
 
-  <!-- Export Confirmation Modal -->
-  <div class="modal-backdrop" *ngIf="showModal">
-    <div class="ui-card" style="max-width: 440px; width: 90%; text-align: center; padding: 2.5rem;">
-      <h3 style="font-size: 1.5rem; margin-bottom: 1rem;">Transaction Complete</h3>
-      <div class="invoice-badge">{{ currentInvoiceNumber }}</div>
-      <p style="color: #64748b; margin-bottom: 2rem;">Select your preferred document distribution format:</p>
-      
-      <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-        <button class="btn-premium action" (click)="downloadExcel(lastProcessedCompany!)">
-          Export as Excel Spreadsheet
-        </button>
-        <button class="btn-premium primary" (click)="downloadPDF(lastProcessedCompany!)">
-          Export as PDF Document
-        </button>
-        <button class="btn-text" (click)="closeExportModal()" style="margin-top: 1rem;">
-          Close Interface
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Toast Notification System -->
+  <!-- Global Toast Notification System -->
   <div class="toast-overlay" *ngIf="toast$ | async as t" [class.show]="t.show">
     <div class="toast-card" [class.error]="t.isError">
       <span class="toast-message">{{ t.message }}</span>

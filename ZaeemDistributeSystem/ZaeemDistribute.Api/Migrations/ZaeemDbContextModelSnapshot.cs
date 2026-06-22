@@ -24,13 +24,13 @@ namespace ZaeemDistribute.Api.Migrations
 
             modelBuilder.Entity("ZaeemDistribute.Api.DTOs.OrderResultDto", b =>
                 {
-                    b.Property<decimal>("AmountDeducted")
+                    b.Property<decimal>("AmountBilled")
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<int?>("OrderId")
                         .HasColumnType("int");
 
-                    b.Property<decimal>("RemainingCredit")
+                    b.Property<decimal>("OutstandingBalance")
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("Result")
@@ -76,9 +76,6 @@ namespace ZaeemDistribute.Api.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("CompanyId"));
 
-                    b.Property<decimal>("AvailableCredit")
-                        .HasColumnType("decimal(18,2)");
-
                     b.Property<string>("CompanyName")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -86,18 +83,42 @@ namespace ZaeemDistribute.Api.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<decimal>("CreditLimit")
-                        .HasColumnType("decimal(18,2)");
-
                     b.Property<decimal>("DefaultDiscount")
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
+                    b.Property<decimal>("OutstandingBalance")
+                        .HasColumnType("decimal(18,2)");
+
                     b.HasKey("CompanyId");
 
                     b.ToTable("Companies");
+                });
+
+            modelBuilder.Entity("ZaeemDistribute.Api.Models.PaymentReceipt", b =>
+                {
+                    b.Property<int>("PaymentReceiptId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("PaymentReceiptId"));
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("PaymentDate")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("PaymentReceiptId");
+
+                    b.HasIndex("CompanyId");
+
+                    b.ToTable("PaymentReceipts");
                 });
 
             modelBuilder.Entity("ZaeemDistribute.Api.Models.Product", b =>
@@ -130,7 +151,65 @@ namespace ZaeemDistribute.Api.Migrations
                     b.ToTable("Products");
                 });
 
+            modelBuilder.Entity("ZaeemDistribute.Api.Models.RentalItem", b =>
+                {
+                    b.Property<int>("RentalItemId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RentalItemId"));
+
+                    b.Property<string>("CompanyName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal>("DailyRate")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("Discount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("EndDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("MachineId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("MachineName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PlateNumber")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("StartDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal>("TotalAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("RentalItemId");
+
+                    b.ToTable("RentalItems");
+                });
+
             modelBuilder.Entity("ZaeemDistribute.Api.Models.BulkOrder", b =>
+                {
+                    b.HasOne("ZaeemDistribute.Api.Models.Company", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Company");
+                });
+
+            modelBuilder.Entity("ZaeemDistribute.Api.Models.PaymentReceipt", b =>
                 {
                     b.HasOne("ZaeemDistribute.Api.Models.Company", "Company")
                         .WithMany()

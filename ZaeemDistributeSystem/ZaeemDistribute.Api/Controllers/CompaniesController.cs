@@ -76,5 +76,25 @@ namespace ZaeemDistribute.Api.Controllers
                 receiptId = "REC-" + receipt.PaymentReceiptId
             });
         }
+
+        // GET: api/payments/receipts
+        [HttpGet("/api/payments/receipts")]
+        public async Task<IActionResult> GetReceipts()
+        {
+            var receipts = await _context.PaymentReceipts
+                .Include(r => r.Company)
+                .OrderByDescending(r => r.PaymentDate)
+                .Select(r => new
+                {
+                    receiptId = "REC-" + r.PaymentReceiptId,
+                    companyId = r.CompanyId,
+                    companyName = r.Company != null ? r.Company.CompanyName : "Unknown",
+                    amount = r.Amount,
+                    paymentDate = r.PaymentDate
+                })
+                .ToListAsync();
+
+            return Ok(receipts);
+        }
     }
 }
