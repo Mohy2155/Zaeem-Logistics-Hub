@@ -36,6 +36,20 @@ const initLocalStorage = () => {
 };
 
 /**
+ * Safe JSON parser to prevent unhandled interceptor crashes.
+ */
+const safeJsonParse = (key: string, fallback: any = []) => {
+  try {
+    const item = localStorage.getItem(key);
+    return item ? JSON.parse(item) : fallback;
+  } catch (error) {
+    console.warn(`[SafeParse] Corrupted payload detected for key: ${key}. Purging cache.`);
+    localStorage.removeItem(key);
+    return fallback;
+  }
+};
+
+/**
  * Standalone Mock Interceptor
  * 
  * Logic: 
@@ -64,12 +78,12 @@ export const mockApiInterceptor: HttpInterceptorFn = (req, next) => {
     const url = req.url.toLowerCase();
 
     if (url.includes('companies') && req.method === 'GET') {
-      mockBody = JSON.parse(localStorage.getItem('zaeem_companies') || '[]');
+      mockBody = safeJsonParse('zaeem_companies', []);
     } else if (url.includes('orders/rentals') && req.method === 'GET') {
-      mockBody = JSON.parse(localStorage.getItem('zaeem_rentals') || '[]');
+      mockBody = safeJsonParse('zaeem_rentals', []);
     } else if (url.includes('place-bulk-order')) {
       const payload: any = req.body || {};
-      const companies = JSON.parse(localStorage.getItem('zaeem_companies') || '[]');
+      const companies = safeJsonParse('zaeem_companies', []);
       const company = companies.find((c: any) => c.companyId === Number(payload.companyId));
       if (company) {
         company.outstandingBalance += payload.orderTotal;
@@ -78,7 +92,7 @@ export const mockApiInterceptor: HttpInterceptorFn = (req, next) => {
 
         // Add items to rentals
         if (Array.isArray(payload.items) && payload.items.length > 0) {
-          const rentals = JSON.parse(localStorage.getItem('zaeem_rentals') || '[]');
+          const rentals = safeJsonParse('zaeem_rentals', []);
           const newRentals = payload.items.map((item: any) => ({
             rentalItemId: Math.floor(Math.random() * 10000) + 1000,
             machineId: item?.machineId,
@@ -106,13 +120,13 @@ export const mockApiInterceptor: HttpInterceptorFn = (req, next) => {
       mockBody = { result: 'SUCCESS', orderId: Math.floor(Math.random() * 10000), invoiceId: newInvoiceId };
     } else if (url.includes('payments/record')) {
       const payload: any = req.body || {};
-      const companies = JSON.parse(localStorage.getItem('zaeem_companies') || '[]');
+      const companies = safeJsonParse('zaeem_companies', []);
       const company = companies.find((c: any) => c.companyId === Number(payload.companyId));
       if (company) {
         company.outstandingBalance = Math.max(0, company.outstandingBalance - payload.amount);
         localStorage.setItem('zaeem_companies', JSON.stringify(companies));
 
-        const receipts = JSON.parse(localStorage.getItem('zaeem_receipts') || '[]');
+        const receipts = safeJsonParse('zaeem_receipts', []);
         const receipt = {
           receiptId: 'REC-' + (Math.floor(Math.random() * 9000) + 1000),
           companyId: company.companyId,
@@ -127,12 +141,12 @@ export const mockApiInterceptor: HttpInterceptorFn = (req, next) => {
         mockBody = { result: 'SUCCESS', receiptId: 'REC-' + Math.floor(Math.random() * 1000) };
       }
     } else if (url.includes('payments/receipts') && req.method === 'GET') {
-      mockBody = JSON.parse(localStorage.getItem('zaeem_receipts') || '[]');
+      mockBody = safeJsonParse('zaeem_receipts', []);
     } else if (url.includes('orders/rentals') && req.method === 'DELETE') {
       const parts = url.split('/');
       const rentalItemId = parts[parts.length - 1];
       
-      const rentals = JSON.parse(localStorage.getItem('zaeem_rentals') || '[]');
+      const rentals = safeJsonParse('zaeem_rentals', []);
       const rentalIndex = rentals.findIndex((r: any) => r.rentalItemId?.toString() === rentalItemId || r.id?.toString() === rentalItemId);
       
       if (rentalIndex !== -1) {
@@ -143,7 +157,7 @@ export const mockApiInterceptor: HttpInterceptorFn = (req, next) => {
         localStorage.setItem('zaeem_rentals', JSON.stringify(rentals));
 
         // Deduct order total from the company outstanding balance
-        const companies = JSON.parse(localStorage.getItem('zaeem_companies') || '[]');
+        const companies = safeJsonParse('zaeem_companies', []);
         const company = companies.find((c: any) => c.companyName === rental.companyName);
         if (company) {
           company.outstandingBalance = Math.max(0, company.outstandingBalance - rental.totalAmount);
@@ -156,7 +170,7 @@ export const mockApiInterceptor: HttpInterceptorFn = (req, next) => {
       const parts = url.split('/');
       const orderId = parts[parts.length - 1];
       // Optional: find and cancel the rental in mock store
-      const rentals = JSON.parse(localStorage.getItem('zaeem_rentals') || '[]');
+      const rentals = safeJsonParse('zaeem_rentals', []);
       const rentalIndex = rentals.findIndex((r: any) => r.orderId?.toString() === orderId || r.rentalItemId?.toString() === orderId);
       if (rentalIndex !== -1) {
         rentals[rentalIndex].status = 'Cancelled';
