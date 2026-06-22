@@ -3,11 +3,43 @@ import { of } from 'rxjs';
 import { delay } from 'rxjs/operators';
 
 /**
+ * Initialize localStorage helper
+ */
+const initLocalStorage = () => {
+  if (typeof window === 'undefined') return;
+
+  if (!localStorage.getItem('zaeem_companies')) {
+    const defaultCompanies = [
+      { companyId: 1, companyName: 'Build-It Corp', outstandingBalance: 12500, totalBilledToDate: 45000, defaultDiscount: 10 },
+      { companyId: 2, companyName: 'Swift Logistics', outstandingBalance: 85000, totalBilledToDate: 120000, defaultDiscount: 15 },
+      { companyId: 3, companyName: 'Mega Structures', outstandingBalance: 0, totalBilledToDate: 25000, defaultDiscount: 5 }
+    ];
+    localStorage.setItem('zaeem_companies', JSON.stringify(defaultCompanies));
+  }
+
+  if (!localStorage.getItem('zaeem_rentals')) {
+    const defaultRentals = [
+      { rentalItemId: 101, machineId: 101, machineName: 'Excavator X3000', companyName: 'Build-It Corp', plateNumber: 'DX-7728', startDate: new Date(Date.now() - 2*24*60*60*1000).toISOString(), endDate: new Date(Date.now() + 5*24*60*60*1000).toISOString(), dailyRate: 450, discount: 10, totalAmount: 2025, status: 'Active' },
+      { rentalItemId: 102, machineId: 102, machineName: 'Caterpillar Loader', companyName: 'Swift Logistics', plateNumber: 'PL-4491', startDate: new Date(Date.now() - 1*24*60*60*1000).toISOString(), endDate: new Date(Date.now() + 6*24*60*60*1000).toISOString(), dailyRate: 320, discount: 15, totalAmount: 1904, status: 'Active' }
+    ];
+    localStorage.setItem('zaeem_rentals', JSON.stringify(defaultRentals));
+  }
+
+  if (!localStorage.getItem('zaeem_receipts')) {
+    const defaultReceipts = [
+      { receiptId: 'REC-1001', companyId: 1, companyName: 'Build-It Corp', amount: 5000, paymentDate: new Date(Date.now() - 24*60*60*1000).toISOString() },
+      { receiptId: 'REC-1002', companyId: 2, companyName: 'Swift Logistics', amount: 15000, paymentDate: new Date(Date.now() - 12*24*60*60*1000).toISOString() }
+    ];
+    localStorage.setItem('zaeem_receipts', JSON.stringify(defaultReceipts));
+  }
+};
+
+/**
  * Standalone Mock Interceptor
  * 
  * Logic: 
  * 1. Checks if the environment is NOT localhost (e.g., GitHub Pages).
- * 2. If in production, it intercepts specific API routes to provide mock data.
+ * 2. If in production, it intercepts specific API routes to provide localStorage persistence.
  * 3. If in development (localhost), it passes requests through to the actual .NET API.
  */
 export const mockApiInterceptor: HttpInterceptorFn = (req, next) => {
@@ -17,6 +49,9 @@ export const mockApiInterceptor: HttpInterceptorFn = (req, next) => {
   if (isLocalhost) {
     return next(req);
   }
+
+  // Ensure state is initialized
+  initLocalStorage();
 
   // Production Mocking Strategy
   // Targets both absolute localhost URLs and relative /api/ paths
@@ -31,30 +66,75 @@ export const mockApiInterceptor: HttpInterceptorFn = (req, next) => {
     const url = req.url.toLowerCase();
 
     if (url.includes('companies') && req.method === 'GET') {
-      mockBody = [
-        { companyId: 1, companyName: 'Build-It Corp', outstandingBalance: 12500, totalBilledToDate: 45000, defaultDiscount: 10 },
-        { companyId: 2, companyName: 'Swift Logistics', outstandingBalance: 85000, totalBilledToDate: 120000, defaultDiscount: 15 },
-        { companyId: 3, companyName: 'Mega Structures', outstandingBalance: 0, totalBilledToDate: 25000, defaultDiscount: 5 }
-      ];
+      mockBody = JSON.parse(localStorage.getItem('zaeem_companies') || '[]');
     } else if (url.includes('orders/rentals') && req.method === 'GET') {
-      mockBody = [
-        { rentalItemId: 101, machineId: 101, machineName: 'Excavator X3000', companyName: 'Build-It Corp', plateNumber: 'DX-7728', startDate: new Date(Date.now() - 2*24*60*60*1000).toISOString(), endDate: new Date(Date.now() + 5*24*60*60*1000).toISOString(), dailyRate: 450, discount: 10, totalAmount: 2025, status: 'Active' },
-        { rentalItemId: 102, machineId: 102, machineName: 'Caterpillar Loader', companyName: 'Swift Logistics', plateNumber: 'PL-4491', startDate: new Date(Date.now() - 1*24*60*60*1000).toISOString(), endDate: new Date(Date.now() + 6*24*60*60*1000).toISOString(), dailyRate: 320, discount: 15, totalAmount: 1904, status: 'Active' }
-      ];
+      mockBody = JSON.parse(localStorage.getItem('zaeem_rentals') || '[]');
     } else if (url.includes('place-bulk-order')) {
-      // Catching any variation of the bulk order endpoint
-      mockBody = { result: 'SUCCESS', orderId: Math.floor(Math.random() * 10000), invoiceId: 'INV-2026-XXXX' };
+      const payload: any = req.body;
+      const companies = JSON.parse(localStorage.getItem('zaeem_companies') || '[]');
+      const company = companies.find((c: any) => c.companyId === Number(payload.companyId));
+      if (company) {
+        company.outstandingBalance += payload.orderTotal;
+        company.totalBilledToDate += payload.orderTotal;
+        localStorage.setItem('zaeem_companies', JSON.stringify(companies));
+
+        // Add items to rentals
+        if (payload.items && payload.items.length > 0) {
+          const rentals = JSON.parse(localStorage.getItem('zaeem_rentals') || '[]');
+          const newRentals = payload.items.map((item: any) => ({
+            rentalItemId: Math.floor(Math.random() * 10000) + 1000,
+            machineId: item.machineId,
+            machineName: item.machineName,
+            companyName: company.companyName,
+            plateNumber: item.plateNumber || 'DX-' + Math.floor(Math.random() * 9000 + 1000),
+            startDate: item.startDate,
+            endDate: item.endDate,
+            dailyRate: item.dailyRate,
+            discount: item.discount,
+            totalAmount: item.lineTotal,
+            status: 'Active'
+          }));
+          localStorage.setItem('zaeem_rentals', JSON.stringify([...rentals, ...newRentals]));
+        }
+      }
+      mockBody = { result: 'SUCCESS', orderId: Math.floor(Math.random() * 10000), invoiceId: 'INV-' + Math.floor(Math.random() * 9000 + 1000) };
     } else if (url.includes('payments/record')) {
-      mockBody = { result: 'SUCCESS', receiptId: 'REC-' + Math.floor(Math.random() * 1000) };
+      const payload: any = req.body;
+      const companies = JSON.parse(localStorage.getItem('zaeem_companies') || '[]');
+      const company = companies.find((c: any) => c.companyId === Number(payload.companyId));
+      if (company) {
+        company.outstandingBalance = Math.max(0, company.outstandingBalance - payload.amount);
+        localStorage.setItem('zaeem_companies', JSON.stringify(companies));
+
+        const receipts = JSON.parse(localStorage.getItem('zaeem_receipts') || '[]');
+        const receipt = {
+          receiptId: 'REC-' + (Math.floor(Math.random() * 9000) + 1000),
+          companyId: company.companyId,
+          companyName: company.companyName,
+          amount: payload.amount,
+          paymentDate: new Date().toISOString()
+        };
+        receipts.unshift(receipt);
+        localStorage.setItem('zaeem_receipts', JSON.stringify(receipts));
+        mockBody = { result: 'SUCCESS', receiptId: receipt.receiptId };
+      } else {
+        mockBody = { result: 'SUCCESS', receiptId: 'REC-' + Math.floor(Math.random() * 1000) };
+      }
     } else if (url.includes('payments/receipts') && req.method === 'GET') {
-      mockBody = [
-        { receiptId: 'REC-1001', companyId: 1, companyName: 'Build-It Corp', amount: 5000, paymentDate: new Date(Date.now() - 24*60*60*1000).toISOString() },
-        { receiptId: 'REC-1002', companyId: 2, companyName: 'Swift Logistics', amount: 15000, paymentDate: new Date(Date.now() - 12*24*60*60*1000).toISOString() }
-      ];
+      mockBody = JSON.parse(localStorage.getItem('zaeem_receipts') || '[]');
     } else if (url.includes('/orders/cancel/')) {
+      // Fetch associated rental to modify state
+      const parts = url.split('/');
+      const orderId = Number(parts[parts.length - 1]);
+      // Optional: find and cancel the rental in mock store
+      const rentals = JSON.parse(localStorage.getItem('zaeem_rentals') || '[]');
+      const rental = rentals.find((r: any) => r.orderId === orderId || r.rentalItemId === orderId);
+      if (rental) {
+        rental.status = 'Cancelled';
+        localStorage.setItem('zaeem_rentals', JSON.stringify(rentals));
+      }
       mockBody = { message: 'Order cancelled successfully' };
     } else {
-      // Generic success for any other potential API calls (e.g. Payments, etc)
       mockBody = { result: 'SUCCESS', status: 200 };
     }
 
