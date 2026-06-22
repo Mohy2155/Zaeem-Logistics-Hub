@@ -78,7 +78,9 @@ export const mockApiInterceptor: HttpInterceptorFn = (req, next) => {
     const url = req.url.toLowerCase();
 
     if (url.includes('companies') && req.method === 'GET') {
-      mockBody = safeJsonParse('zaeem_companies', []);
+      const companiesArray = safeJsonParse('zaeem_companies', []);
+      const totalOutstanding = companiesArray.reduce((sum: number, c: any) => sum + (c.outstandingBalance || 0), 0);
+      mockBody = { items: companiesArray, totalSystemOutstanding: totalOutstanding };
     } else if (url.includes('orders/rentals') && req.method === 'GET') {
       mockBody = safeJsonParse('zaeem_rentals', []);
     } else if (url.includes('place-bulk-order')) {

@@ -54,9 +54,11 @@ export class CompanyService {
     { id: 105, name: 'Asphalt Paver', category: 'Roadwork', dailyRate: 400 }
   ];
 
-  // State management for offline-mode simulation
   private companiesSubject = new BehaviorSubject<CompanyResponseDto[]>([]);
   companies$ = this.companiesSubject.asObservable();
+
+  private totalOutstandingSubject = new BehaviorSubject<number>(0);
+  totalOutstanding$ = this.totalOutstandingSubject.asObservable();
 
   private machinerySubject = new BehaviorSubject<Machinery[]>(this.machineryCatalog);
   machinery$ = this.machinerySubject.asObservable();
@@ -76,21 +78,35 @@ export class CompanyService {
   private fetchInitialCompanies(): void {
     // In a real scenario, we'd fetch from HttpClient. 
     // For this mock/offline exercise, if the API fails, we use fallback data.
-    this.http.get<CompanyResponseDto[]>(this.companiesUrl).subscribe({
-      next: (data) => this.companiesSubject.next(data),
+    this.http.get<any>(this.companiesUrl).subscribe({
+      next: (data) => {
+        if (data && data.items) {
+          this.companiesSubject.next(data.items);
+          this.totalOutstandingSubject.next(data.totalSystemOutstanding || 0);
+        } else {
+          this.companiesSubject.next(data);
+          this.totalOutstandingSubject.next(data.reduce((acc: number, curr: any) => acc + (curr.outstandingBalance || 0), 0));
+        }
+      },
       error: () => {
         // Fallback mock data if API is not running
-        this.companiesSubject.next([
+        const fallback = [
           { companyId: 1, companyName: 'Build-It Corp', outstandingBalance: 12500, totalBilledToDate: 45000 },
           { companyId: 2, companyName: 'Swift Logistics', outstandingBalance: 85000, totalBilledToDate: 120000 },
           { companyId: 3, companyName: 'Mega Structures', outstandingBalance: 0, totalBilledToDate: 25000 }
-        ]);
+        ];
+        this.companiesSubject.next(fallback);
+        this.totalOutstandingSubject.next(fallback.reduce((acc, curr) => acc + curr.outstandingBalance, 0));
       }
     });
   }
 
   getCompanies(): Observable<CompanyResponseDto[]> {
     return this.companies$.pipe(delay(500));
+  }
+
+  getTotalOutstanding(): Observable<number> {
+    return this.totalOutstanding$.pipe(delay(500));
   }
 
   getMachinery(): Observable<Machinery[]> {
@@ -140,6 +156,7 @@ export class CompanyService {
             totalBilledToDate: company.totalBilledToDate + payload.orderTotal
           };
           this.companiesSubject.next(updatedCompanies);
+          this.totalOutstandingSubject.next(this.totalOutstandingSubject.value + payload.orderTotal);
 
           // Add to rentals if items are present
           if (payload.items && payload.items.length > 0) {
@@ -189,6 +206,7 @@ export class CompanyService {
               outstandingBalance: Math.max(0, updatedCompanies[companyIndex].outstandingBalance - rental.totalAmount)
             };
             this.companiesSubject.next(updatedCompanies);
+            this.totalOutstandingSubject.next(updatedCompanies.reduce((sum, c) => sum + c.outstandingBalance, 0));
           }
         }
       })
@@ -211,6 +229,7 @@ export class CompanyService {
               outstandingBalance: Math.max(0, company.outstandingBalance - amount)
             };
             this.companiesSubject.next(updatedCompanies);
+            this.totalOutstandingSubject.next(updatedCompanies.reduce((sum, c) => sum + c.outstandingBalance, 0));
           }
         }
       })
