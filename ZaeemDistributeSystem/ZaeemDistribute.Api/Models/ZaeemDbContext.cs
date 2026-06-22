@@ -27,6 +27,7 @@ namespace ZaeemDistribute.Api.Models
             modelBuilder.Entity<RentalItem>().Property(r => r.DailyRate).HasColumnType("decimal(18,2)");
             modelBuilder.Entity<RentalItem>().Property(r => r.Discount).HasColumnType("decimal(18,2)");
             modelBuilder.Entity<RentalItem>().Property(r => r.TotalAmount).HasColumnType("decimal(18,2)");
+            modelBuilder.Entity<RentalItem>().Property(r => r.TaxPercent).HasColumnType("decimal(18,2)");
 
             // Tell EF Core this is a temporary result, not a real table
             modelBuilder.Entity<OrderResultDto>().HasNoKey();

@@ -52,7 +52,9 @@ namespace ZaeemDistribute.Api.Controllers
                                 DailyRate = item.DailyRate,
                                 Discount = item.Discount,
                                 TotalAmount = item.LineTotal,
-                                Status = "Active"
+                                Status = "Active",
+                                TaxType = item.TaxType,
+                                TaxPercent = item.TaxPercent
                             };
                             _context.RentalItems.Add(rental);
                         }
@@ -98,7 +100,9 @@ namespace ZaeemDistribute.Api.Controllers
                             DailyRate = item.DailyRate,
                             Discount = item.Discount,
                             TotalAmount = item.LineTotal,
-                            Status = "Active"
+                            Status = "Active",
+                            TaxType = item.TaxType,
+                            TaxPercent = item.TaxPercent
                         };
                         _context.RentalItems.Add(rental);
                     }
@@ -121,6 +125,29 @@ namespace ZaeemDistribute.Api.Controllers
         {
             var rentals = await _context.RentalItems.ToListAsync();
             return Ok(rentals);
+        }
+
+        // DELETE: api/orders/rentals/{id}
+        [HttpDelete("rentals/{id}")]
+        public async Task<IActionResult> DeleteRentalItem(int id)
+        {
+            var rental = await _context.RentalItems.FindAsync(id);
+            if (rental == null)
+            {
+                return NotFound(new { message = "Rental item not found" });
+            }
+
+            // Recalculate ledger balance: deduct rental's total amount from company's outstanding balance
+            var company = await _context.Companies.FirstOrDefaultAsync(c => c.CompanyName == rental.CompanyName);
+            if (company != null)
+            {
+                company.OutstandingBalance = Math.Max(0, company.OutstandingBalance - rental.TotalAmount);
+            }
+
+            _context.RentalItems.Remove(rental);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Rental item cancelled and removed successfully", outstandingBalance = company?.OutstandingBalance });
         }
 
         // POST: api/orders/cancel/{id}

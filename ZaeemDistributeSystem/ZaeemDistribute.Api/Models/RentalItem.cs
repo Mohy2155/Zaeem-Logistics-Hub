@@ -17,5 +17,7 @@ namespace ZaeemDistribute.Api.Models
         public decimal Discount { get; set; }
         public decimal TotalAmount { get; set; }
         public string Status { get; set; } = "Active";
+        public string TaxType { get; set; } = string.Empty;
+        public decimal TaxPercent { get; set; }
     }
 }
