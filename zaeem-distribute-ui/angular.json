@@ -68,6 +68,25 @@
                 }
               ]
             },
+            "prod-demo": {
+              "fileReplacements": [
+                {
+                  "replace": "src/app/services/company.ts",
+                  "with": "src/app/services/fleet.mock.ts"
+                }
+              ],
+              "optimization": true,
+              "outputHashing": "all",
+              "sourceMap": false,
+              "extractLicenses": true,
+              "budgets": [
+                {
+                  "type": "initial",
+                  "maximumWarning": "2mb",
+                  "maximumError": "3mb"
+                }
+              ]
+            },
             "development": {
               "optimization": false,
               "extractLicenses": false,
