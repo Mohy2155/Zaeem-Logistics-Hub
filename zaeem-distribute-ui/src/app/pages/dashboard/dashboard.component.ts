@@ -82,8 +82,8 @@ import { CompanyService, ActiveRental, CompanyResponseDto } from '../../services
                   </td>
                   <td class="text-right font-mono">{{ r.totalAmount | currency }}</td>
                   <td>
-                    <span class="status-indicator" [ngClass]="r.status?.toLowerCase() || 'active'">
-                      {{ r.status || 'Active' }}
+                    <span class="status-indicator" [ngClass]="getDynamicStatus(r).toLowerCase()">
+                      {{ getDynamicStatus(r) }}
                     </span>
                   </td>
                 </tr>
@@ -301,6 +301,16 @@ import { CompanyService, ActiveRental, CompanyResponseDto } from '../../services
       color: #475569;
     }
 
+    .status-indicator.pending {
+      background: #fef08a;
+      color: #854d0e;
+    }
+
+    .status-indicator.completed {
+      background: #e2e8f0;
+      color: #475569;
+    }
+
     .status-indicator.cancelled {
       background: #fee2e2;
       color: #b91c1c;
@@ -409,6 +419,23 @@ export class DashboardComponent implements OnInit {
       this.calculateMetrics();
       this.calculateFleetDistribution();
     });
+  }
+
+  getDynamicStatus(rental: ActiveRental): string {
+    if (rental.status === 'Cancelled') return 'Cancelled';
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const start = new Date(rental.startDate);
+    start.setHours(0, 0, 0, 0);
+    
+    const end = new Date(rental.endDate);
+    end.setHours(0, 0, 0, 0);
+    
+    if (today < start) return 'Pending';
+    if (today > end) return 'Completed';
+    return 'Active';
   }
 
   calculateOutstanding(): void {

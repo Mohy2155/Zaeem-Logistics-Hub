@@ -12,7 +12,7 @@ import autoTable from 'jspdf-autotable';
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-    <div class="premium-grid" style="grid-template-columns: 1fr; gap: 2rem;">
+    <div class="premium-grid" style="grid-template-columns: 1.5fr 1fr; gap: 2rem; align-items: start;">
       <!-- Corporate Ledger Card -->
       <section class="polished-card inventory-section">
         <header class="card-header">
@@ -46,90 +46,33 @@ import autoTable from 'jspdf-autotable';
         </div>
       </section>
 
-      <div class="premium-grid" style="grid-template-columns: 1.2fr 0.8fr; gap: 2rem; align-items: start;">
-        <!-- Equipment Rental Tracker -->
-        <section class="polished-card">
-          <header class="card-header">
-            <h3>Active Equipment Rentals</h3>
-            <span class="badge">{{ rentals.length }} Deployments</span>
-          </header>
-
-          <div class="ledger-table-container">
-            <table class="premium-table">
-              <thead>
-                <tr>
-                  <th style="width: 30%;">Equipment / Client</th>
-                  <th style="width: 20%;">Plate Number</th>
-                  <th style="width: 25%;">Rental Period</th>
-                  <th style="width: 15%;">Status</th>
-                  <th style="width: 10%; text-align: right;">Total</th>
-                  <th style="text-align: center; width: 10%;">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let rental of rentals">
-                  <td>
-                    <div style="font-weight: 600;">{{ rental.machineName }}</div>
-                    <div class="text-muted" style="font-size: 0.75rem;">{{ rental.companyName }}</div>
-                  </td>
-                  <td class="font-mono" style="font-size: 0.8rem;">
-                    {{ rental.plateNumber || 'N/A' }}
-                  </td>
-                  <td>
-                    <div style="font-size: 0.8rem;">{{ rental.startDate | date:'shortDate' }} - {{ rental.endDate | date:'shortDate' }}</div>
-                  </td>
-                  <td>
-                    <span class="status-badge" [ngClass]="getRentalStatus(rental.startDate, rental.endDate).toLowerCase()">
-                      {{ getRentalStatus(rental.startDate, rental.endDate) }}
-                    </span>
-                  </td>
-                  <td class="text-right font-mono">{{ rental.totalAmount | currency }}</td>
-                  <td style="text-align: center;">
-                    <button *ngIf="getRentalStatus(rental.startDate, rental.endDate) === 'Pending'"
-                            class="btn-cancel"
-                            (click)="cancelProcessedOrder(rental.orderId || 0, rental.id)">
-                      Cancel
-                    </button>
-                  </td>
-                </tr>
-                <tr *ngIf="rentals.length === 0">
-                  <td colspan="6" style="text-align: center; padding: 2rem;" class="text-muted italic">
-                    No active equipment rentals tracked in system.
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+      <!-- Admin Actions Card -->
+      <section class="polished-card admin-section">
+        <header class="card-header">
+          <h3>Payment Management</h3>
+        </header>
+        
+        <form (submit)="$event.preventDefault(); recordPayment()" class="admin-form">
+          <div class="form-group">
+            <label>Paying Client / Partner</label>
+            <select [(ngModel)]="selectedAdminCompanyId" name="adminCompanyId" required>
+              <option value="0" disabled selected>Select partner company...</option>
+              <option *ngFor="let c of companies" [value]="c.companyId">
+                {{ c.companyName }} ({{ c.outstandingBalance | currency }})
+              </option>
+            </select>
           </div>
-        </section>
 
-        <!-- Admin Actions Card -->
-        <section class="polished-card admin-section">
-          <header class="card-header">
-            <h3>Payment Management</h3>
-          </header>
-          
-          <form (submit)="$event.preventDefault(); recordPayment()" class="admin-form">
-            <div class="form-group">
-              <label>Paying Client / Partner</label>
-              <select [(ngModel)]="selectedAdminCompanyId" name="adminCompanyId" required>
-                <option value="0" disabled selected>Select partner company...</option>
-                <option *ngFor="let c of companies" [value]="c.companyId">
-                  {{ c.companyName }} ({{ c.outstandingBalance | currency }})
-                </option>
-              </select>
-            </div>
+          <div class="form-group">
+            <label>Transaction Amount ($)</label>
+            <input type="number" [(ngModel)]="paymentAmount" name="paymentAmount" placeholder="0.00" min="1" required />
+          </div>
 
-            <div class="form-group">
-              <label>Transaction Amount ($)</label>
-              <input type="number" [(ngModel)]="paymentAmount" name="paymentAmount" placeholder="0.00" min="1" required />
-            </div>
-
-            <button type="submit" class="btn-premium action" [disabled]="selectedAdminCompanyId === 0 || paymentAmount <= 0">
-              ✅ Record Payment from Client
-            </button>
-          </form>
-        </section>
-      </div>
+          <button type="submit" class="btn-premium action" [disabled]="selectedAdminCompanyId === 0 || paymentAmount <= 0">
+            Record Payment from Client
+          </button>
+        </form>
+      </section>
     </div>
 
     <!-- Receipt Modal -->
@@ -146,13 +89,13 @@ import autoTable from 'jspdf-autotable';
         
         <div class="modal-actions">
           <button class="btn-premium action" (click)="generateReceiptExcel()">
-             📊 Download Excel Receipt
+             Download Excel Receipt
           </button>
           <button class="btn-premium primary" (click)="generateReceiptPDF()">
-             📄 Download PDF Receipt
+             Download PDF Receipt
           </button>
           <button class="btn-text" (click)="showReceiptModal = false" style="margin-top: 1rem;">
-            Dismiss
+            Close
           </button>
         </div>
       </div>
