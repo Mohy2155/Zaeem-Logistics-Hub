@@ -36,11 +36,21 @@ export const mockApiInterceptor: HttpInterceptorFn = (req, next) => {
         { companyId: 2, companyName: 'Swift Logistics', outstandingBalance: 85000, totalBilledToDate: 120000, defaultDiscount: 15 },
         { companyId: 3, companyName: 'Mega Structures', outstandingBalance: 0, totalBilledToDate: 25000, defaultDiscount: 5 }
       ];
+    } else if (url.includes('orders/rentals') && req.method === 'GET') {
+      mockBody = [
+        { rentalItemId: 101, machineId: 101, machineName: 'Excavator X3000', companyName: 'Build-It Corp', plateNumber: 'DX-7728', startDate: new Date(Date.now() - 2*24*60*60*1000).toISOString(), endDate: new Date(Date.now() + 5*24*60*60*1000).toISOString(), dailyRate: 450, discount: 10, totalAmount: 2025, status: 'Active' },
+        { rentalItemId: 102, machineId: 102, machineName: 'Caterpillar Loader', companyName: 'Swift Logistics', plateNumber: 'PL-4491', startDate: new Date(Date.now() - 1*24*60*60*1000).toISOString(), endDate: new Date(Date.now() + 6*24*60*60*1000).toISOString(), dailyRate: 320, discount: 15, totalAmount: 1904, status: 'Active' }
+      ];
     } else if (url.includes('place-bulk-order')) {
       // Catching any variation of the bulk order endpoint
       mockBody = { result: 'SUCCESS', orderId: Math.floor(Math.random() * 10000), invoiceId: 'INV-2026-XXXX' };
     } else if (url.includes('payments/record')) {
-      mockBody = { result: 'SUCCESS', receiptId: 'REC-2026-XXXX' };
+      mockBody = { result: 'SUCCESS', receiptId: 'REC-' + Math.floor(Math.random() * 1000) };
+    } else if (url.includes('payments/receipts') && req.method === 'GET') {
+      mockBody = [
+        { receiptId: 'REC-1001', companyId: 1, companyName: 'Build-It Corp', amount: 5000, paymentDate: new Date(Date.now() - 24*60*60*1000).toISOString() },
+        { receiptId: 'REC-1002', companyId: 2, companyName: 'Swift Logistics', amount: 15000, paymentDate: new Date(Date.now() - 12*24*60*60*1000).toISOString() }
+      ];
     } else if (url.includes('/orders/cancel/')) {
       mockBody = { message: 'Order cancelled successfully' };
     } else {

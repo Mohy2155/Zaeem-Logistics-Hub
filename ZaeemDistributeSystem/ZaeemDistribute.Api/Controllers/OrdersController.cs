@@ -18,6 +18,7 @@ namespace ZaeemDistribute.Api.Controllers
             _context = context;
         }
 
+
         // POST: api/orders/place-bulk-order
         [HttpPost("place-bulk-order")]
         public async Task<IActionResult> PlaceBulkOrder([FromBody] OrderRequestDto request)
@@ -34,6 +35,29 @@ namespace ZaeemDistribute.Api.Controllers
                 
                 if (orderResult != null)
                 {
+                    // Seed/store rental items in DB
+                    if (request.Items != null && request.Items.Any())
+                    {
+                        var companyName = (await _context.Companies.FindAsync(request.CompanyId))?.CompanyName ?? "Unknown Company";
+                        foreach (var item in request.Items)
+                        {
+                            var rental = new RentalItem
+                            {
+                                MachineId = item.MachineId,
+                                MachineName = item.MachineName,
+                                CompanyName = companyName,
+                                PlateNumber = item.PlateNumber,
+                                StartDate = DateTime.TryParse(item.StartDate, out var sDate) ? sDate : DateTime.Now,
+                                EndDate = DateTime.TryParse(item.EndDate, out var eDate) ? eDate : DateTime.Now.AddDays(7),
+                                DailyRate = item.DailyRate,
+                                Discount = item.Discount,
+                                TotalAmount = item.LineTotal,
+                                Status = "Active"
+                            };
+                            _context.RentalItems.Add(rental);
+                        }
+                        await _context.SaveChangesAsync();
+                    }
                     return Ok(orderResult);
                 }
 
@@ -58,6 +82,28 @@ namespace ZaeemDistribute.Api.Controllers
                 };
 
                 _context.BulkOrders.Add(newOrder);
+
+                if (request.Items != null && request.Items.Any())
+                {
+                    foreach (var item in request.Items)
+                    {
+                        var rental = new RentalItem
+                        {
+                            MachineId = item.MachineId,
+                            MachineName = item.MachineName,
+                            CompanyName = company.CompanyName,
+                            PlateNumber = item.PlateNumber,
+                            StartDate = DateTime.TryParse(item.StartDate, out var sDate) ? sDate : DateTime.Now,
+                            EndDate = DateTime.TryParse(item.EndDate, out var eDate) ? eDate : DateTime.Now.AddDays(7),
+                            DailyRate = item.DailyRate,
+                            Discount = item.Discount,
+                            TotalAmount = item.LineTotal,
+                            Status = "Active"
+                        };
+                        _context.RentalItems.Add(rental);
+                    }
+                }
+
                 await _context.SaveChangesAsync();
 
                 return Ok(new OrderResultDto {
@@ -67,6 +113,14 @@ namespace ZaeemDistribute.Api.Controllers
                     OutstandingBalance = company.OutstandingBalance
                 });
             }
+        }
+
+        // GET: api/orders/rentals
+        [HttpGet("rentals")]
+        public async Task<IActionResult> GetRentals()
+        {
+            var rentals = await _context.RentalItems.ToListAsync();
+            return Ok(rentals);
         }
 
         // POST: api/orders/cancel/{id}
@@ -89,6 +143,15 @@ namespace ZaeemDistribute.Api.Controllers
             {
                 // Reverse the balance increase (Balance Due System)
                 company.OutstandingBalance -= order.TotalAmount;
+
+                // Also cancel associated rental items
+                var activeRentals = await _context.RentalItems
+                    .Where(r => r.CompanyName == company.CompanyName && r.Status == "Active")
+                    .ToListAsync();
+                foreach (var rental in activeRentals)
+                {
+                    rental.Status = "Cancelled";
+                }
             }
 
             order.OrderStatus = "Cancelled";

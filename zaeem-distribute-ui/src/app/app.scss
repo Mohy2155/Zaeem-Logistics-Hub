@@ -101,11 +101,8 @@ body {
 .main-content {
   flex: 1;
   padding: 2rem;
-  display: grid;
-  grid-template-columns: 1.1fr 0.9fr;
-  gap: 2rem;
-  align-items: start;
   box-sizing: border-box;
+  overflow-y: auto;
 }
 
 .content-header {

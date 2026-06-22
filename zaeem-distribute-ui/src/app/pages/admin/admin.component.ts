@@ -97,7 +97,7 @@ import autoTable from 'jspdf-autotable';
           
           <form (submit)="$event.preventDefault(); recordPayment()" class="admin-form">
             <div class="form-group">
-              <label>Receiving Entity</label>
+              <label>Paying Client / Partner</label>
               <select [(ngModel)]="selectedAdminCompanyId" name="adminCompanyId" required>
                 <option value="0" disabled selected>Select partner company...</option>
                 <option *ngFor="let c of companies" [value]="c.companyId">
@@ -112,7 +112,7 @@ import autoTable from 'jspdf-autotable';
             </div>
 
             <button type="submit" class="btn-premium action" [disabled]="selectedAdminCompanyId === 0 || paymentAmount <= 0">
-              ✅ Record Received Payment
+              ✅ Record Payment from Client
             </button>
           </form>
         </section>
@@ -157,6 +157,81 @@ import autoTable from 'jspdf-autotable';
     .status-badge.active { background-color: #dcfce7; color: #166534; }
     .status-badge.returned-overdue { background-color: #fee2e2; color: #991b1b; }
     .italic { font-style: italic; }
+
+    .admin-form {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+      padding: 1.5rem;
+      background: rgba(30, 41, 59, 0.65); /* Glassmorphic dark overlay */
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      box-sizing: border-box;
+    }
+    .admin-form .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .admin-form .form-group label {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: #94a3b8; /* Light slate text for dark form */
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .admin-form select, .admin-form input {
+      height: 44px;
+      padding: 0 1rem;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 8px;
+      background: rgba(15, 23, 42, 0.6) !important; /* Slate 900 translucent */
+      color: #ffffff !important;
+      font-family: inherit;
+      font-size: 0.9rem;
+      outline: none;
+      transition: all 0.2s;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .admin-form select:focus, .admin-form input:focus {
+      border-color: #0284c7 !important;
+      box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.3) !important;
+      background: rgba(15, 23, 42, 0.8) !important;
+    }
+    .admin-form option {
+      background: #1e293b;
+      color: #ffffff;
+    }
+    .admin-form .btn-premium {
+      height: 44px;
+      padding: 0 1.5rem;
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      background: linear-gradient(135deg, #0284c7, #0369a1) !important;
+      color: #ffffff !important;
+      box-shadow: 0 4px 12px rgba(2, 132, 199, 0.3);
+    }
+    .admin-form .btn-premium:hover:not(:disabled) {
+      background: linear-gradient(135deg, #0369a1, #075985) !important;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(2, 132, 199, 0.45);
+    }
+    .admin-form .btn-premium:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
   `]
 })
 export class AdminDashboardComponent implements OnInit {
@@ -242,17 +317,55 @@ export class AdminDashboardComponent implements OnInit {
     if (!this.lastPaymentCompany) return;
     try {
       const doc = new jsPDF();
-      doc.setFontSize(20);
-      doc.text('ZAEEM DISTRIBUTE', 14, 20);
-      doc.setFontSize(14);
-      doc.text('PAYMENT RECEIPT', 14, 30);
       
+      // Header Section
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(22);
+      doc.setTextColor(30, 41, 59); // Slate 800
+      doc.text('ZAEEM LOGISTICS HUB', 14, 25);
+      
+      doc.setFont("helvetica", "normal");
       doc.setFontSize(10);
-      doc.text(`RECEIPT NO: ${this.receiptId}`, 14, 45);
-      doc.text(`DATE: ${new Date().toLocaleDateString()}`, 14, 50);
-      doc.text(`RECEIVED FROM: ${this.lastPaymentCompany.companyName}`, 14, 60);
-      doc.text(`AMOUNT PAID: $${this.lastPaymentAmount.toFixed(2)}`, 14, 65);
+      doc.setTextColor(100, 116, 139); // Slate 500
+      doc.text('Official Payment Receipt & Financial Statement', 14, 32);
       
+      // Receipt Meta Details (Margins/Alignments)
+      doc.setFontSize(9);
+      doc.setTextColor(71, 85, 105); // Slate 600
+      doc.text(`Receipt Reference: ${this.receiptId}`, 14, 45);
+      doc.text(`Transaction Date: ${new Date().toLocaleString()}`, 14, 50);
+      doc.text(`Status: Completed / Paid`, 14, 55);
+
+      // Create a neat structure table for transaction line items
+      const body = [
+        ["Paying Client / Partner", this.lastPaymentCompany.companyName],
+        ["Ledger Account ID", `#${this.lastPaymentCompany.companyId}`],
+        ["Transaction Amount", `$${this.lastPaymentAmount.toFixed(2)}`],
+        ["Remaining Outstanding Balance", `$${this.lastPaymentCompany.outstandingBalance.toFixed(2)}`]
+      ];
+
+      autoTable(doc, {
+        startY: 65,
+        head: [["Financial Category", "Transaction Details"]],
+        body: body,
+        theme: 'grid',
+        headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 10 },
+        bodyStyles: { fontSize: 9, textColor: [30, 41, 59] },
+        columnStyles: {
+          0: { cellWidth: 80, fontStyle: 'bold' },
+          1: { cellWidth: 100 }
+        },
+        styles: { cellPadding: 6 }
+      });
+
+      const finalY = (doc as any).lastAutoTable?.finalY || 120;
+
+      // Footer disclaimer & signature
+      doc.setFontSize(9);
+      doc.setTextColor(148, 163, 184); // Slate 400
+      doc.text("Thank you for your business. For any billing queries, contact finance@zaeem.com.", 14, finalY + 20);
+      
+      // Save Receipt
       doc.save(`Receipt_${this.receiptId}_${this.lastPaymentCompany.companyName.replace(/\s+/g, '_')}.pdf`);
     } catch (e) { console.error(e); }
   }

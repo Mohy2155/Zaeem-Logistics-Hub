@@ -159,8 +159,140 @@ export interface OrderLineItem {
     </div>
   `,
   styles: [`
+    .premium-grid {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 2rem;
+      padding: 1rem 0;
+      animation: fadeIn 0.4s ease-out;
+    }
+    @media (max-width: 1024px) {
+      .premium-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    .polished-card {
+      background: rgba(255, 255, 255, 0.75);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.45);
+      border-radius: 16px;
+      box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.05);
+      padding: 2rem;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .card-header {
+      margin-bottom: 1.5rem;
+      border-bottom: 1px solid rgba(226, 232, 240, 0.6);
+      padding-bottom: 0.75rem;
+    }
+    .card-header h3 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: #0f172a;
+    }
+    .order-form {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .form-group label {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: #475569;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .form-group select, .form-group input {
+      height: 44px;
+      padding: 0 1rem;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      background: #ffffff;
+      color: #334155;
+      font-family: inherit;
+      font-size: 0.9rem;
+      outline: none;
+      transition: all 0.2s;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .form-group select:focus, .form-group input:focus {
+      border-color: #0284c7;
+      box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+    }
+    .btn-premium {
+      height: 44px;
+      padding: 0 1.5rem;
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+    .btn-premium.action {
+      background: linear-gradient(135deg, #0284c7, #0369a1) !important;
+      color: #ffffff !important;
+      box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25);
+    }
+    .btn-premium.action:hover:not(:disabled) {
+      background: linear-gradient(135deg, #0369a1, #075985) !important;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(2, 132, 199, 0.35);
+    }
+    .btn-premium.primary {
+      background: linear-gradient(135deg, #10b981, #059669) !important;
+      color: #ffffff !important;
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);
+    }
+    .btn-premium.primary:hover:not(:disabled) {
+      background: linear-gradient(135deg, #059669, #047857) !important;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(16, 185, 129, 0.35);
+    }
+    .btn-premium:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+    .cost-summary-box {
+      background: rgba(248, 250, 252, 0.8);
+      border: 1px dashed #cbd5e1;
+      border-radius: 8px;
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .summary-line {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.85rem;
+    }
+    .summary-line span {
+      color: #64748b;
+    }
+    .summary-line strong {
+      font-weight: 700;
+      color: #0f172a;
+    }
     .text-success { color: #10b981; }
+    .text-muted { color: #64748b; }
     .invalid { border-color: #ef4444 !important; }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
   `]
 })
 export class ClientPortalComponent implements OnInit {
