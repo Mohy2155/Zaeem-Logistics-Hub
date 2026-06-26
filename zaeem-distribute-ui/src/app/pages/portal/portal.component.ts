@@ -125,17 +125,17 @@ export interface OrderLineItem {
         </div>
 
         <div class="ledger-table-container mini-table">
-          <table class="premium-table">
-            <thead>
-              <tr>
-                <th>Equipment</th>
-                <th class="text-right">Amount</th>
+          <table class="premium-table" style="width: 100%; display: block;">
+            <thead style="width: 100%; display: block;">
+              <tr style="display: grid; grid-template-columns: 1fr 120px 100px; align-items: center; gap: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid rgba(226, 232, 240, 0.6);">
+                <th style="text-align: left;">Equipment</th>
+                <th class="text-right" style="text-align: right;">Amount</th>
                 <th></th>
               </tr>
             </thead>
-            <tbody>
-              <tr *ngFor="let item of cart; let i = index">
-                <td>
+            <tbody style="width: 100%; display: block;">
+              <tr *ngFor="let item of cart; let i = index" style="display: grid; grid-template-columns: 1fr 120px 100px; align-items: center; gap: 1rem; padding: 0.75rem 0; border-bottom: 1px solid rgba(226, 232, 240, 0.6);">
+                <td style="padding-right: 1.5rem; text-align: left;">
                   <div class="font-medium">{{ item.machineName }} ({{ item.plateNumber }})</div>
                   <div class="text-muted small">
                     {{ item.rentalDays }} days 
@@ -143,17 +143,17 @@ export interface OrderLineItem {
                     <span> - {{ item.taxType }} ({{ item.taxPercent }}%)</span>
                   </div>
                 </td>
-                <td class="text-right font-mono">{{ item.lineTotal | currency }}</td>
-                <td class="text-right">
-                  <button class="btn-premium danger" (click)="removeItem(i)" [disabled]="isProcessing" style="height: 32px; padding: 0 1rem; font-size: 0.85rem;">Remove</button>
+                <td class="text-right font-mono" style="text-align: right;">{{ item.lineTotal | currency }}</td>
+                <td class="text-right" style="text-align: right;">
+                  <button class="btn-premium danger" (click)="removeItem(i)" [disabled]="isProcessing" style="height: 32px; padding: 0 1rem; font-size: 0.85rem; width: 100%;">Remove</button>
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
 
-        <div class="cart-summary-footer">
-          <div class="grand-total-row">
+        <div class="cart-summary-footer" style="margin-top: 1.5rem;">
+          <div class="grand-total-row" style="margin-bottom: 1rem;">
             <span>Cart Total:</span>
             <span class="total-value">{{ cartGrandTotal | currency }}</span>
           </div>
@@ -175,12 +175,14 @@ export interface OrderLineItem {
         <p class="text-muted" style="margin-bottom: 2rem;">Please choose your distribution format:</p>
         
         <div class="modal-actions">
-          <button class="btn-premium action" (click)="generateInvoice(lastProcessedCompany!)">
-             Download Excel Spreadsheet
-          </button>
-          <button class="btn-premium primary" (click)="generatePDF(lastProcessedCompany!)">
-             Download PDF Document
-          </button>
+          <div style="display: flex; flex-direction: column; gap: 0.75rem; width: 100%;">
+            <button class="btn-premium action" (click)="generateInvoice(lastProcessedCompany!)" style="width: 100%; text-align: center;">
+               Download Excel Spreadsheet
+            </button>
+            <button class="btn-premium primary" (click)="generatePDF(lastProcessedCompany!)" style="width: 100%; text-align: center;">
+               Download PDF Document
+            </button>
+          </div>
           <button class="btn-premium secondary" (click)="closeExportModal()" style="margin-top: 1rem; width: 100%;">
             Close
           </button>
@@ -448,8 +450,8 @@ export class ClientPortalComponent implements OnInit, OnDestroy {
     const machine = this.machinery.find(m => m.id === Number(this.selectedMachineId));
     if (!machine) return;
 
-    if (this.cart.some(item => item.machineId === machine.id)) {
-      this.toastService.show('Scheduling Conflict: This specific machinery is already in your active order.', true);
+    if (this.cart.some(item => item.plateNumber === this.plateNumber)) {
+      this.toastService.show('Scheduling Conflict: A machine with this plate number is already in your active order.', true);
       return;
     }
 
@@ -498,7 +500,13 @@ export class ClientPortalComponent implements OnInit, OnDestroy {
       next: (response: any) => {
         this.isProcessing = false;
         if (response && response.result === 'SUCCESS') {
-          this.invoiceId = (response.invoiceId && response.invoiceId !== 'INV-PENDING') ? response.invoiceId : `INV-${new Date().getTime()}`;
+          let fallbackInvoice = 'INV-1000';
+          if (!response.invoiceId || response.invoiceId === 'INV-PENDING') {
+            let nextInvoice = parseInt(localStorage.getItem('zaeem_invoice_counter') || '1000');
+            fallbackInvoice = `INV-${nextInvoice}`;
+            localStorage.setItem('zaeem_invoice_counter', (nextInvoice + 1).toString());
+          }
+          this.invoiceId = (response.invoiceId && response.invoiceId !== 'INV-PENDING') ? response.invoiceId : fallbackInvoice;
           this.lastProcessedCompany = company;
           
           this.completedOrderItems = exportedCart;
