@@ -88,15 +88,9 @@ export class CompanyService {
           this.totalOutstandingSubject.next(data.reduce((acc: number, curr: any) => acc + (curr.outstandingBalance || 0), 0));
         }
       },
-      error: () => {
-        // Fallback mock data if API is not running
-        const fallback = [
-          { companyId: 1, companyName: 'Build-It Corp', outstandingBalance: 12500, totalBilledToDate: 45000 },
-          { companyId: 2, companyName: 'Swift Logistics', outstandingBalance: 85000, totalBilledToDate: 120000 },
-          { companyId: 3, companyName: 'Mega Structures', outstandingBalance: 0, totalBilledToDate: 25000 }
-        ];
-        this.companiesSubject.next(fallback);
-        this.totalOutstandingSubject.next(fallback.reduce((acc, curr) => acc + curr.outstandingBalance, 0));
+      error: (err) => {
+        console.error('Failed to fetch data from the DB/API. Ensure the backend is running at', this.companiesUrl, err);
+        // We're no longer falling back to mock data here to avoid confusion.
       }
     });
   }
