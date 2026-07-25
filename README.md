@@ -1,6 +1,6 @@
 # Zaeem-Logistics-Hub: Full-Stack Fleet Workspace
 
-This repository houses the complete full-stack workspace for a B2B heavy machinery fleet management and asset tracking platform. The project is engineered as a decoupled monorepo containing a high-throughput server engine and a responsive web application dashboard sitting side-by-side in a unified workspace.
+Zaeem Distribute is a full-stack commercial equipment rental and logistics management system designed for the heavy construction industry. The application enables B2B clients and equipment suppliers to manage machinery dispatch, calculate tiered rental rates (factoring in, optionally, any discounts and regional VAT), track equipment availability using unique asset identifiers, and process bulk orders with sequential invoicing.
 
 ##  Live Production Demo
 The frontend client interface is compiled and deployed live. You can interact with the responsive dashboard directly in your browser:
