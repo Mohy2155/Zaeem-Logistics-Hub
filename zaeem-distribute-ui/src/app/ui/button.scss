@@ -1,0 +1,84 @@
+// Shared by ui-button and ui-icon-button.
+:host {
+  --btn-bg: var(--color-surface);
+  --btn-bg-hover: var(--color-surface-hover);
+  --btn-fg: var(--color-text);
+  --btn-border: var(--color-border-strong);
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  height: var(--control-height);
+  padding-inline: var(--space-4);
+  border: 1px solid var(--btn-border);
+  border-radius: var(--radius-md);
+  background: var(--btn-bg);
+  color: var(--btn-fg);
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  line-height: 1;
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard);
+}
+
+:host(:hover:not([disabled])) { background: var(--btn-bg-hover); }
+:host(:active:not([disabled])) { box-shadow: var(--shadow-inset); }
+
+:host([disabled]) {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+:host([aria-busy='true']) {
+  cursor: progress;
+  opacity: 1;
+}
+
+:host(.ui-btn--primary) {
+  --btn-bg: var(--color-accent);
+  --btn-bg-hover: var(--color-accent-hover);
+  --btn-fg: var(--color-on-accent);
+  --btn-border: transparent;
+}
+
+:host(.ui-btn--destructive) {
+  --btn-bg: var(--color-danger);
+  --btn-bg-hover: var(--color-danger-hover);
+  --btn-fg: var(--color-on-accent);
+  --btn-border: transparent;
+}
+
+:host(.ui-btn--ghost) {
+  --btn-bg: transparent;
+  --btn-border: transparent;
+  --btn-fg: var(--color-text-muted);
+}
+
+:host(.ui-btn--ghost:hover:not([disabled])) { color: var(--color-text); }
+
+:host(.ui-btn--sm) {
+  height: var(--control-height-sm);
+  padding-inline: var(--space-3);
+  font-size: var(--text-sm);
+}
+
+:host(.ui-btn--block) { width: 100%; }
+
+:host(.ui-btn--icon) {
+  width: var(--control-height);
+  padding: 0;
+}
+
+:host(.ui-btn--icon.ui-btn--sm) { width: var(--control-height-sm); }
+
+.spin { animation: ui-spin 0.8s linear infinite; }
+
+@keyframes ui-spin {
+  to { transform: rotate(1turn); }
+}
