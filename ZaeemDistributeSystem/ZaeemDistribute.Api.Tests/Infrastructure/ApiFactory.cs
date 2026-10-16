@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 
 namespace ZaeemDistribute.Api.Tests.Infrastructure;
@@ -30,6 +31,9 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     public string DatabaseName { get; }
     public string ConnectionString { get; }
 
+    /// <summary>Clients in the database right after startup, before any test resets it (0 when seeding is off).</summary>
+    public int ClientsAtStartup { get; private set; }
+
     public TestData Data => new(Services);
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -47,6 +51,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     {
         await WaitForServerAsync();
         _ = Services; // Starting the host runs Program.cs, which creates and migrates the test database
+        ClientsAtStartup = await Data.QueryAsync(db => db.Companies.CountAsync());
     }
 
     async Task IAsyncLifetime.DisposeAsync()

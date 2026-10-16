@@ -1,5 +1,3 @@
-using System.Net.Http.Json;
-using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using ZaeemDistribute.Api.Models;
@@ -19,13 +17,9 @@ public class HarnessTests(ApiFactory api) : ApiTest(api)
         Assert.Contains(ApiFactory.TestDatabaseMarker, connected);
     }
 
+    // Counted when the host started: every test's reset would hide seed rows from a check made here.
     [Fact]
-    public async Task Startup_seed_data_is_switched_off()
-    {
-        var clients = await Client.GetFromJsonAsync<JsonElement>("/api/companies");
-
-        Assert.Equal(0, clients.GetArrayLength());
-    }
+    public void Startup_seed_data_is_switched_off() => Assert.Equal(0, Api.ClientsAtStartup);
 
     // Points at a database that does not exist, so a broken guard fails this test instead of deleting anything.
     [Fact]

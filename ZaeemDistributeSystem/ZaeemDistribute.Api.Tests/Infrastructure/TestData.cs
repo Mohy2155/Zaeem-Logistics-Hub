@@ -92,9 +92,16 @@ public sealed class TestData(IServiceProvider services)
         return result;
     }
 
+    // Table names go into SQL text (identifiers can't be parameters), so only these are accepted.
+    private static readonly HashSet<string> IdentityTables = ["Companies", "BulkOrders", "RentalItems", "PaymentReceipts"];
+
     // An explicit id needs IDENTITY_INSERT on the same open connection (contract cases address rows by id).
     private async Task<T> InsertAsync<T>(string table, int? explicitId, T entity) where T : class
     {
+        if (!IdentityTables.Contains(table)) throw new ArgumentException($"Not a seedable table: {table}", nameof(table));
+        var identityOn = "SET IDENTITY_INSERT [" + table + "] ON";
+        var identityOff = "SET IDENTITY_INSERT [" + table + "] OFF";
+
         await UseAsync(async db =>
         {
             db.Add(entity);
@@ -107,9 +114,9 @@ public sealed class TestData(IServiceProvider services)
             await db.Database.OpenConnectionAsync();
             try
             {
-                await db.Database.ExecuteSqlRawAsync($"SET IDENTITY_INSERT [{table}] ON");
+                await db.Database.ExecuteSqlRawAsync(identityOn);
                 await db.SaveChangesAsync();
-                await db.Database.ExecuteSqlRawAsync($"SET IDENTITY_INSERT [{table}] OFF");
+                await db.Database.ExecuteSqlRawAsync(identityOff);
             }
             finally
             {
