@@ -32,15 +32,17 @@ app.UseCors("AllowAngularApp");
 app.UseAuthorization();
 app.MapControllers();
 
-// Seed data inside scope for development testing
+// Bring the database up to date and seed it, so a fresh clone runs with just `dotnet run`
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
     try
     {
         var context = services.GetRequiredService<ZaeemDbContext>();
-        
-        // Ensure table is seeded
+
+        // Creates the database if it doesn't exist and applies any pending migrations
+        context.Database.Migrate();
+
         if (!context.Companies.Any())
         {
             var companies = new List<Company>
@@ -77,11 +79,11 @@ using (var scope = app.Services.CreateScope())
                     MachineName = "Excavator X3000",
                     CompanyName = "Build-It Corp",
                     PlateNumber = "DX-7728",
-                    StartDate = DateTime.Now.AddDays(-2),
-                    EndDate = DateTime.Now.AddDays(5),
+                    StartDate = DateTime.Today.AddDays(-2),
+                    EndDate = DateTime.Today.AddDays(5),
                     DailyRate = 450,
                     Discount = 10,
-                    TotalAmount = 2025,
+                    TotalAmount = 2835,
                     Status = "Active"
                 },
                 new RentalItem
@@ -90,8 +92,8 @@ using (var scope = app.Services.CreateScope())
                     MachineName = "Caterpillar Loader",
                     CompanyName = "Swift Logistics",
                     PlateNumber = "PL-4491",
-                    StartDate = DateTime.Now.AddDays(-1),
-                    EndDate = DateTime.Now.AddDays(6),
+                    StartDate = DateTime.Today.AddDays(-1),
+                    EndDate = DateTime.Today.AddDays(6),
                     DailyRate = 320,
                     Discount = 15,
                     TotalAmount = 1904,
@@ -104,7 +106,10 @@ using (var scope = app.Services.CreateScope())
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"An error occurred during database seeding: {ex.Message}");
+        // Without a database every endpoint fails, so stop here with a clear message instead
+        app.Logger.LogCritical(ex,
+            "Database setup failed. Check that SQL Server is running and that ConnectionStrings:DefaultConnection in appsettings.json points to it.");
+        throw;
     }
 }
 

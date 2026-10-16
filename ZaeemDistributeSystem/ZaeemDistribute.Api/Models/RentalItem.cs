@@ -7,6 +7,7 @@ namespace ZaeemDistribute.Api.Models
     {
         [Key]
         public int RentalItemId { get; set; }
+        public int? BulkOrderId { get; set; } // Null for rentals created before orders were linked
         public int MachineId { get; set; }
         public string MachineName { get; set; } = string.Empty;
         public string CompanyName { get; set; } = string.Empty;
