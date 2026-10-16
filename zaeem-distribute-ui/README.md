@@ -8,7 +8,7 @@ The Angular 21 frontend for Zaeem Logistics Hub. It talks to the .NET API in `..
 |---------|--------------|
 | `npm install` | Install dependencies (Node.js 20+). |
 | `npm start` | Dev server on http://localhost:4200 against the real API at http://localhost:5234. |
-| `npm test` | Unit tests with Vitest (`ng test`), including the design-system guard tests. |
+| `npm test` | Unit tests with Vitest (`ng test`), including the design-system guard tests and the API contract cases run against the demo mock. |
 | `npm run build` | Production build into `dist/zaeem-distribute-ui/` (expects the API). |
 | `npm run build:demo` | Demo build (`prod-demo`: mock API, demo banner) with the GitHub Pages base path. |
 | `npm run deploy` | Demo build published to the `gh-pages` branch. |
@@ -27,7 +27,8 @@ src/
     ├── ui/               Design-system primitives (buttons, cards, form fields, data table,
     │                     dialogs, async states, toasts…); documented in ui/README.md
     ├── services/         CompanyService (API calls), ThemeService, ToastService, rental date rules,
-    │                     fleet catalogue, and the demo mock-API interceptor
+    │                     fleet catalogue, and the demo mock API (mock-api.ts, wired in by
+    │                     mock-api.interceptor.ts)
     └── pages/
         ├── dashboard/    Key figures, deployments and utilisation (dashboard-summary.ts)
         ├── portal/       New Rental Order: form, order summary, confirmation; pricing and
@@ -47,4 +48,19 @@ Conventions:
 
 ## Demo mode
 
-`src/environments/environment.prod-demo.ts` turns on `mock-api.interceptor.ts`, which answers API calls from `localStorage` (keys prefixed `zaeem_`), applies the same validation as the API (booking conflicts, payment limits) and seeds sample data on first load. The shell shows a demo banner with **Reset demo data**, which clears only the `zaeem_` keys.
+`src/environments/environment.prod-demo.ts` turns on `mock-api.interceptor.ts`. The interceptor hands API calls to `handleMockRequest` in `services/mock-api.ts` and adds 600 ms of simulated latency. `handleMockRequest` answers from `localStorage` (keys prefixed `zaeem_`) with the API's endpoints, rules and messages, and seeds sample data on first load. The shell shows a demo banner with **Reset demo data**, which clears only the `zaeem_` keys.
+
+### Keeping the demo honest: contract cases
+
+The demo must behave like the real API, and **the real API is the source of truth**. The shared cases in [`../contracts/api-cases.json`](../contracts/api-cases.json) describe each endpoint: starting data, request, expected status, response fields and balance changes. The same file runs in two places:
+
+- `npm test` runs every case against the mock (`src/app/services/mock-api.contract.spec.ts`).
+- `dotnet test` in `../ZaeemDistributeSystem` runs every case against the API.
+
+When a case fails here but passes against the API, fix `mock-api.ts` and leave the case alone. To add a case, or change an API rule:
+
+1. Add or update the case in `api-cases.json`.
+2. Run `dotnet test` and confirm it passes against the API.
+3. Run `npm test` and update the mock until it passes too.
+
+[`../contracts/README.md`](../contracts/README.md) explains the case format and lists the few intentional differences between the API and the mock, such as receipt numbering and payment timestamp zones.

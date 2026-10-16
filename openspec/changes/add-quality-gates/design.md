@@ -84,6 +84,15 @@ See proposal.md for motivation. The current state that shapes the approach:
 | Line totals | rounded to cents before summing | not rounded | rounded the same way (`Math.round(x * 100) / 100`; see Risks for halves) |
 | `DELETE /api/orders/rentals/{id}`, `POST /api/orders/cancel/{id}` | implemented | fall through to a generic success | implemented with the API's rules |
 
+Found by the contract cases during implementation, and fixed the same way:
+
+| Area | API today | Mock today | After |
+|------|-----------|------------|-------|
+| Receipt history order | newest first by payment date | storage order | sorted newest first |
+| Inactive clients | left out of the client list | no active flag | `isActive: false` clients left out |
+| Rental dates | `yyyy-MM-ddT00:00:00` | stored as sent (`yyyy-MM-dd`), seed rentals as UTC ISO strings | stored as `yyyy-MM-ddT00:00:00` |
+| Unknown API route | 404 | generic success | 404 |
+
 **Intentional differences**, recorded next to the cases and excluded from comparison:
 - **Receipt numbering:** both use `REC-<number>`, but the sequences differ. Cases check only the pattern.
 - **Payment timestamps:** the mock writes ISO strings with `Z`; the API writes no zone. The frontend already parses both, and the UTC cleanup is out of scope.

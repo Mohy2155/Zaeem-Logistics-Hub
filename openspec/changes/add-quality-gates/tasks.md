@@ -19,12 +19,12 @@
 
 ## 3. Contract cases and demo mock parity
 
-- [ ] 3.1 Create `contracts/api-cases.json` covering every endpoint and case listed in `specs/demo-api-parity`, plus `contracts/README.md` describing the format (D4) and listing the intentional differences (receipt numbering, payment timestamp zone, half-cent rounding); verify the JSON parses and every endpoint the frontend calls appears in at least one case
-- [ ] 3.2 Add the .NET contract runner (one xUnit theory over the cases, file linked with `CopyToOutputDirectory`); verify all cases pass against the API, so the cases describe the API's current behaviour
-- [ ] 3.3 Split the mock (D5): move request handling into an exported handler in `services/mock-api.ts` and keep the interceptor as the environment check plus delay; verify the existing unit tests pass and the demo build still places an order and records a payment in the browser
-- [ ] 3.4 Add the Vitest contract runner over the same file; verify it runs and record which cases fail against the mock before any fix (expected: the divergences in D6)
-- [ ] 3.5 Fix the mock per D6 (plain-array client list, lifetime billed computed from rentals, all order validations in API order, line-total rounding, both cancel endpoints) and remove the `items` branch from `company.ts`; verify every contract case passes in `ng test`, and the dashboard, ledger and payments pages show the same figures as before in the demo build
-- [ ] 3.6 Document the contract cases (how to add one, and that the API is the source of truth) in the frontend README; verify the README links to `contracts/README.md`
+- [x] 3.1 Create `contracts/api-cases.json` covering every endpoint and case listed in `specs/demo-api-parity`, plus `contracts/README.md` describing the format (D4) and listing the intentional differences (receipt numbering, payment timestamp zone, half-cent rounding); verify the JSON parses and every endpoint the frontend calls appears in at least one case
+- [x] 3.2 Add the .NET contract runner (one xUnit theory over the cases, file linked with `CopyToOutputDirectory`); verify all cases pass against the API, so the cases describe the API's current behaviour
+- [x] 3.3 Split the mock (D5): move request handling into an exported handler in `services/mock-api.ts` and keep the interceptor as the environment check plus delay; verify the existing unit tests pass and the demo build still places an order and records a payment in the browser
+- [x] 3.4 Add the Vitest contract runner over the same file; verify it runs and record which cases fail against the mock before any fix (expected: the divergences in D6)
+- [x] 3.5 Fix the mock per D6 (plain-array client list, lifetime billed computed from rentals, all order validations in API order, line-total rounding, both cancel endpoints) and remove the `items` branch from `company.ts`; verify every contract case passes in `ng test`, and the dashboard, ledger and payments pages show the same figures as before in the demo build
+- [x] 3.6 Document the contract cases (how to add one, and that the API is the source of truth) in the frontend README; verify the README links to `contracts/README.md`
 
 ## 4. End-to-end tests
 
