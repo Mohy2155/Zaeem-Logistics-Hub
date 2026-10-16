@@ -108,6 +108,11 @@
   color: var(--color-on-accent);
   font-size: var(--text-lg);
   font-weight: var(--weight-bold);
+
+  // Generated, so the letter isn't counted as the link's visible text (its name comes from aria-label).
+  &::before {
+    content: 'Z';
+  }
 }
 
 .app-brand-text {

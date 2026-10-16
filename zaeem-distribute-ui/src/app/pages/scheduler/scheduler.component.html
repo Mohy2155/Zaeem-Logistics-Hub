@@ -39,7 +39,7 @@
                 @if (bar.continuesBefore) { <ui-icon class="cue" name="chevron-left" [size]="14" /> }
                 <span class="bar-text">
                   <span class="bar-client">{{ bar.booking.companyName }}</span>
-                  @if (bar.booking.plateNumber) { <span class="bar-plate num">{{ bar.booking.plateNumber }}</span> }
+                  @if (bar.booking.plateNumber) { {{ ' ' }}<span class="bar-plate num">{{ bar.booking.plateNumber }}</span> }
                 </span>
                 @if (bar.continuesAfter) { <ui-icon class="cue" name="chevron-right" [size]="14" /> }
               </button>

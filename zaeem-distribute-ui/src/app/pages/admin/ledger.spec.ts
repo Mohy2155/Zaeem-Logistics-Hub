@@ -55,6 +55,7 @@ describe('filterClients', () => {
 describe('balances', () => {
   it('shows a negative balance as a credit in the client\'s favour', () => {
     expect(formatBalance(-606.5)).toBe('$606.50 credit');
+    expect(formatBalance(-606.5, false)).toBe('$606.50');
     expect(balanceKind(-606.5)).toBe('credit');
   });
 

@@ -88,4 +88,14 @@ describe('UiDataTable', () => {
     expect(cells[1].textContent!.trim()).toBe('$85000');
     expect(el.querySelector('caption')!.textContent).toBe('Clients');
   });
+
+  it('keeps a hidden header label for screen readers and card mode', () => {
+    const fixture = TestBed.createComponent(TableHost);
+    fixture.componentInstance.columns = [...COLUMNS, { key: 'actions', label: 'Actions', hideLabel: true }];
+    fixture.detectChanges();
+    const el: HTMLElement = fixture.nativeElement;
+    const header = el.querySelectorAll('th')[2];
+    expect(header.querySelector('.sr-only')!.textContent).toBe('Actions');
+    expect(el.querySelector('tbody tr td:last-child')!.getAttribute('data-label')).toBe('Actions');
+  });
 });

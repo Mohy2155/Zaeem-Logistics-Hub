@@ -69,10 +69,10 @@
 
 ## 10. Integration verification
 
-- [ ] 10.1 Run Lighthouse accessibility on Dashboard, New Rental Order, Fleet Schedule, Client Ledger and Payments in light and dark themes against the demo build; verify every score is ≥ 95, then repeat a spot check on the full-stack build
-- [ ] 10.2 Do a keyboard-only and screen-reader smoke test (NVDA or Narrator) of the order and payment flows; verify that labels, errors, toasts and dialogs are announced correctly
-- [ ] 10.3 Capture screenshots of every page at 390/800/1440px in both themes, in both modes, for the PR; verify there is no horizontal page scroll and no clipped content
-- [ ] 10.4 Run `ng build`, `npm run build:demo`, `ng test` and `dotnet build`; verify all succeed, then run `graphify update .`
+- [x] 10.1 Run Lighthouse accessibility on Dashboard, New Rental Order, Fleet Schedule, Client Ledger and Payments in light and dark themes against the demo build; verify every score is ≥ 95, then repeat a spot check on the full-stack build
+- [x] 10.2 Do a keyboard-only and screen-reader smoke test (NVDA or Narrator) of the order and payment flows; verify that labels, errors, toasts and dialogs are announced correctly
+- [x] 10.3 Capture screenshots of every page at 390/800/1440px in both themes, in both modes, for the PR; verify there is no horizontal page scroll and no clipped content
+- [x] 10.4 Run `ng build`, `npm run build:demo`, `ng test` and `dotnet build`; verify all succeed, then run `graphify update .`
 
 ## Workflow follow-up
 

@@ -44,7 +44,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: flex-end;
-  flex-wrap: wrap;
+  white-space: nowrap;
   gap: var(--space-2);
 }
 
@@ -55,6 +55,15 @@
 @include bp.down(lg) {
   .stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+// Between 768px and 1024px the table is tight, so the row action shows only its icon (its name stays in aria-label).
+@include bp.up(md) {
+  @include bp.down(lg) {
+    .action-text {
+      display: none;
+    }
   }
 }
 

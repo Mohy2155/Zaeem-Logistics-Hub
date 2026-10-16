@@ -11,11 +11,14 @@ export function balanceKind(balance: number): BalanceKind {
   return 'settled';
 }
 
-/** "$12,500.00", or "$606.50 credit" for a negative balance (money owed to the client). */
-export function formatBalance(balance: number): string {
+/**
+ * "$12,500.00", or "$606.50 credit" for a negative balance (money owed to the client).
+ * Pass `creditSuffix: false` where a Credit badge already says it.
+ */
+export function formatBalance(balance: number, creditSuffix = true): string {
   const kind = balanceKind(balance);
   const amount = formatCurrency(kind === 'settled' ? 0 : Math.abs(balance), 'en-US', '$', 'USD');
-  return kind === 'credit' ? `${amount} credit` : amount;
+  return kind === 'credit' && creditSuffix ? `${amount} credit` : amount;
 }
 
 /** Case-insensitive match on the client name; a blank query keeps everyone. */
@@ -46,5 +49,5 @@ export const LEDGER_COLUMNS: TableColumn<CompanyResponseDto>[] = [
   { key: 'defaultDiscount', label: 'Default discount', align: 'end', sortable: true, firstDirection: 'desc', sortValue: c => c.defaultDiscount ?? 0 },
   { key: 'outstandingBalance', label: 'Balance due', align: 'end', sortable: true, firstDirection: 'desc' },
   { key: 'totalBilledToDate', label: 'Lifetime billed', align: 'end', sortable: true, firstDirection: 'desc' },
-  { key: 'actions', label: 'Actions', align: 'end', width: '11rem' },
+  { key: 'actions', label: 'Actions', align: 'end', hideLabel: true },
 ];
