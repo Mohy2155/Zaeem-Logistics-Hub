@@ -61,7 +61,7 @@ namespace ZaeemDistribute.Api.Controllers
                 return NotFound(new { message = "Company not found." });
             }
 
-            if (request.Amount > company.OutstandingBalance * 2)
+            if (request.Amount > company.OutstandingBalance)
             {
                 return BadRequest(new { message = $"Payment exceeds the outstanding balance of {company.OutstandingBalance:0.00}." });
             }
