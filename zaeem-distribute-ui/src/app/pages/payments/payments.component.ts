@@ -1,6 +1,8 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 import { CompanyService, CompanyResponseDto } from '../../services/company';
 import { ToastService } from '../../services/toast';
 
@@ -272,8 +274,9 @@ import { ToastService } from '../../services/toast';
     }
   `]
 })
-export class PaymentsComponent implements OnInit {
+export class PaymentsComponent implements OnInit, OnDestroy {
   private companyService = inject(CompanyService);
+  private destroy$ = new Subject<void>();
 
   companies: CompanyResponseDto[] = [];
   receipts: any[] = [];
@@ -282,8 +285,13 @@ export class PaymentsComponent implements OnInit {
     this.loadData();
   }
 
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
   loadData(): void {
-    this.companyService.getCompanies().subscribe(data => this.companies = data);
-    this.companyService.getReceipts().subscribe(data => this.receipts = data);
+    this.companyService.getCompanies().pipe(takeUntil(this.destroy$)).subscribe(data => this.companies = data);
+    this.companyService.getReceipts().pipe(takeUntil(this.destroy$)).subscribe(data => this.receipts = data);
   }
 }

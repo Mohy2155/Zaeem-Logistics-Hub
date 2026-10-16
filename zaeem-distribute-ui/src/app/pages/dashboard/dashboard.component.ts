@@ -3,6 +3,16 @@ import { CommonModule } from '@angular/common';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { CompanyService, ActiveRental, CompanyResponseDto } from '../../services/company';
+import { rentalStatus } from '../../services/rental-dates';
+
+// Units owned per machine model (mock inventory until the API exposes it)
+const FLEET_INVENTORY: { [name: string]: number } = {
+  'Excavator X3000': 5,
+  'Caterpillar Loader': 5,
+  'Tower Crane T1': 2,
+  'Bulldozer D9': 4,
+  'Asphalt Paver': 3
+};
 
 @Component({
   selector: 'app-dashboard',
@@ -438,52 +448,29 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   getDynamicStatus(rental: ActiveRental): string {
-    if (rental.status === 'Cancelled') return 'Cancelled';
-    
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    const start = new Date(rental.startDate);
-    start.setHours(0, 0, 0, 0);
-    
-    const end = new Date(rental.endDate);
-    end.setHours(0, 0, 0, 0);
-    
-    if (today < start) return 'Pending';
-    if (today > end) return 'Completed';
-    return 'Active';
+    return rentalStatus(rental);
   }
 
-  // Removed client-side calculateOutstanding()
+  // The stored status stays 'Active' after a rental ends, so "deployed" is derived from today's date.
+  private get deployedRentals(): ActiveRental[] {
+    return this.rentals.filter(r => rentalStatus(r) === 'Active');
+  }
 
   calculateMetrics(): void {
-    const active = this.rentals.filter(r => r.status !== 'Cancelled' && r.status !== 'Returned');
-    this.activeDeployments = active.length;
-    
-    // Hardcoded max fleet of 15 machinery assets
-    const maxFleet = 15;
-    this.utilizationRate = Math.round((this.activeDeployments / maxFleet) * 100);
+    this.activeDeployments = this.deployedRentals.length;
+    const fleetSize = Object.values(FLEET_INVENTORY).reduce((sum, count) => sum + count, 0);
+    this.utilizationRate = Math.round((this.activeDeployments / fleetSize) * 100);
   }
 
   calculateFleetDistribution(): void {
-    const active = this.rentals.filter(r => r.status !== 'Cancelled' && r.status !== 'Returned');
-    
     const groups: { [key: string]: number } = {};
-    active.forEach(r => {
+    this.deployedRentals.forEach(r => {
       groups[r.machineName] = (groups[r.machineName] || 0) + 1;
     });
 
-    const mockInventoryCounts: { [key: string]: number } = {
-      'Excavator X3000': 5,
-      'Caterpillar Loader': 5,
-      'Tower Crane T1': 2,
-      'Bulldozer D9': 4,
-      'Asphalt Paver': 3
-    };
-
-    this.fleetStatus = Object.keys(mockInventoryCounts).map(name => {
+    this.fleetStatus = Object.keys(FLEET_INVENTORY).map(name => {
       const activeCount = groups[name] || 0;
-      const total = mockInventoryCounts[name] || 1;
+      const total = FLEET_INVENTORY[name] || 1;
       return {
         name,
         activeCount,
