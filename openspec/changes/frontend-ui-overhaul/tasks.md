@@ -28,8 +28,8 @@
 - [x] 4.2 Add route `title` data, a `TitleStrategy` that produces "<Page> · Zaeem Logistics Hub", and change the root/wildcard redirects to `/dashboard`; verify with vitest for the title format and manually that all five existing paths still resolve
 - [x] 4.3 Add the theme toggle to the shell at all breakpoints; verify that switching re-themes without a reload and persists after a reload
 - [x] 4.4 Replace the sidebar reset link with a demo-mode notice and a Reset Demo Data action behind `ui-confirm-dialog`, shown only when `environment.useMockData` is true; verify that the demo build shows it and cancelling changes nothing, and that the full-stack build shows neither
-- [ ] 4.5 Mount `ui-toast-stack` in the shell, remove the old toast overlay, and remove the `app.scss` rules it replaced; verify that the success and error toasts from an order and a payment display and stack
-- [ ] 4.6 Verify there is no page-level horizontal scroll on every route at 360px and 1440px (`document.documentElement.scrollWidth <= innerWidth`)
+- [x] 4.5 Mount `ui-toast-stack` in the shell, remove the old toast overlay, and remove the `app.scss` rules it replaced; verify that the success and error toasts from an order and a payment display and stack
+- [x] 4.6 Verify there is no page-level horizontal scroll on every route at 360px and 1440px (`document.documentElement.scrollWidth <= innerWidth`)
 
 ## 5. Operations Dashboard
 
@@ -56,10 +56,10 @@
 
 ## 8. Client Ledger and Payments
 
-- [ ] 8.1 Extract ledger sort/filter/summary helpers and a credit-balance formatter; verify with vitest for sorting by each column, case-insensitive filtering and the "$606.50 credit" output
-- [ ] 8.2 Rebuild the Client Ledger page (`ui-data-table` with sortable columns, filter, totals row, credit labels, per-row Record Payment linking to `/payments?client=<id>`, card mode below 768px, async states); remove the payment form from this page; verify against the API data in both modes
-- [ ] 8.3 Rebuild the Payments page: `payment-form` (client preselect from the query param, current and resulting balance preview, "Pay full balance", inline overpayment and non-positive errors) with `ui-confirm-dialog` before submitting, and the success view with receipt number and PDF/Excel downloads (existing generators); verify an overpayment is blocked, cancelling records nothing, and a confirmed payment updates the balance and history without a reload
-- [ ] 8.4 Rebuild the receipt history (newest first, client filter, empty state with a Record Payment action, async states) and remove the duplicated balance table from Payments; verify with zero receipts (demo reset) and with several receipts
+- [x] 8.1 Extract ledger sort/filter/summary helpers and a credit-balance formatter; verify with vitest for sorting by each column, case-insensitive filtering and the "$606.50 credit" output
+- [x] 8.2 Rebuild the Client Ledger page (`ui-data-table` with sortable columns, filter, totals row, credit labels, per-row Record Payment linking to `/payments?client=<id>`, card mode below 768px, async states); remove the payment form from this page; verify against the API data in both modes
+- [x] 8.3 Rebuild the Payments page: `payment-form` (client preselect from the query param, current and resulting balance preview, "Pay full balance", inline overpayment and non-positive errors) with `ui-confirm-dialog` before submitting, and the success view with receipt number and PDF/Excel downloads (existing generators); verify an overpayment is blocked, cancelling records nothing, and a confirmed payment updates the balance and history without a reload
+- [x] 8.4 Rebuild the receipt history (newest first, client filter, empty state with a Record Payment action, async states) and remove the duplicated balance table from Payments; verify with zero receipts (demo reset) and with several receipts
 
 ## 9. Cleanup and guards
 

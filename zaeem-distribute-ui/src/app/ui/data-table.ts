@@ -92,11 +92,14 @@ export class UiTableFooter {
             <tr>
               @for (col of columns(); track col.key) {
                 <td [class.end]="col.align === 'end'" [attr.data-label]="col.label">
-                  @if (cellTemplate(col.key); as tpl) {
-                    <ng-container *ngTemplateOutlet="tpl; context: { $implicit: row }" />
-                  } @else {
-                    {{ $any(row)[col.key] }}
-                  }
+                  <!-- One wrapper per cell, so multi-line content stays together beside its label in card mode. -->
+                  <div class="ui-cell">
+                    @if (cellTemplate(col.key); as tpl) {
+                      <ng-container *ngTemplateOutlet="tpl; context: { $implicit: row }" />
+                    } @else {
+                      {{ $any(row)[col.key] }}
+                    }
+                  </div>
                 </td>
               }
             </tr>

@@ -1,0 +1,76 @@
+:host {
+  display: block;
+  container-type: inline-size;
+}
+
+.form {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.amount-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  align-items: start;
+}
+
+// Lines the shortcut up with the input, below the label.
+.full {
+  margin-top: calc(var(--text-sm) * var(--leading-normal) + var(--space-1));
+}
+
+.note {
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.preview {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-sunken);
+
+  div {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-4);
+  }
+
+  dt {
+    color: var(--color-text-muted);
+  }
+
+  dd {
+    margin: 0;
+    font-weight: var(--weight-medium);
+    text-align: end;
+  }
+
+  .after {
+    padding-top: var(--space-2);
+    border-top: 1px solid var(--color-border);
+
+    dt {
+      color: var(--color-text);
+      font-weight: var(--weight-semibold);
+    }
+
+    dd {
+      font-size: var(--text-lg);
+      font-weight: var(--weight-semibold);
+    }
+  }
+}
+
+@container (max-width: 22rem) {
+  .amount-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .full {
+    margin-top: 0;
+  }
+}

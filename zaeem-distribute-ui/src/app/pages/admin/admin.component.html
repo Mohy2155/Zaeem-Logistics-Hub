@@ -1,0 +1,68 @@
+<ui-page-header title="Client Ledger" description="What each client owes and has been billed over time.">
+  <a ui-button icon="hand-coins" routerLink="/payments">Record a payment</a>
+</ui-page-header>
+
+<ui-async-view [state]="data.state$ | async" what="the client ledger" skeleton="table" [skeletonCount]="4"
+               emptyTitle="No clients yet" emptyMessage="Clients appear here once they're added to the system."
+               emptyIcon="users" (retry)="data.retry()">
+  <ng-template uiReady>
+    <div class="content">
+      <section class="stats" aria-label="Ledger totals">
+        <ui-stat-card label="Balance due" icon="wallet" [value]="(totals().balanceDue | currency) ?? ''"
+                      [context]="totals().withBalance + ' of ' + totals().clients + ' clients have a balance'" />
+        <ui-stat-card label="Lifetime billed" icon="receipt" [value]="(totals().lifetimeBilled | currency) ?? ''"
+                      context="All orders since each client joined" />
+        <ui-stat-card label="Clients" icon="users" [value]="'' + totals().clients"
+                      [context]="totals().clients - totals().withBalance + ' fully settled or in credit'" />
+      </section>
+
+      <ui-card heading="Balances" description="Credits are money held in a client's favour." flush>
+        <div card-actions class="filter">
+          <ui-icon name="search" [size]="16" class="filter-icon" />
+          <input type="search" class="ui-control filter-input" aria-label="Filter clients by name" placeholder="Filter clients"
+                 [value]="query()" (input)="query.set($any($event.target).value)" />
+        </div>
+
+        @if (visible().length) {
+          <ui-data-table [columns]="columns" [rows]="visible()" [(sort)]="sort" [trackBy]="trackClient" caption="Client balances">
+            <ng-template uiCell="companyName" let-c>
+              <span class="client">{{ c.companyName }}</span>
+            </ng-template>
+            <ng-template uiCell="defaultDiscount" let-c>
+              <span class="num">{{ c.defaultDiscount ? c.defaultDiscount + '%' : '—' }}</span>
+            </ng-template>
+            <ng-template uiCell="outstandingBalance" let-c>
+              <span class="balance">
+                @switch (balanceKind(c.outstandingBalance)) {
+                  @case ('credit') { <ui-badge tone="success">Credit</ui-badge> }
+                  @case ('settled') { <ui-badge tone="neutral">Settled</ui-badge> }
+                }
+                <span class="num" [class.strong]="balanceKind(c.outstandingBalance) === 'due'">{{ formatBalance(c.outstandingBalance) }}</span>
+              </span>
+            </ng-template>
+            <ng-template uiCell="totalBilledToDate" let-c>
+              <span class="num">{{ c.totalBilledToDate | currency }}</span>
+            </ng-template>
+            <ng-template uiCell="actions" let-c>
+              @if (balanceKind(c.outstandingBalance) === 'due') {
+                <a ui-button size="sm" variant="ghost" icon="hand-coins" routerLink="/payments" [queryParams]="{ client: c.companyId }"
+                   [attr.aria-label]="'Record payment for ' + c.companyName">Record payment</a>
+              }
+            </ng-template>
+            <ng-template uiTableFooter>
+              <td data-label="Total">{{ query() ? visibleTotals().clients + ' of ' + totals().clients + ' clients' : visibleTotals().clients + ' clients' }}</td>
+              <td></td>
+              <td class="end num" data-label="Balance due">{{ visibleTotals().balanceDue | currency }}</td>
+              <td class="end num" data-label="Lifetime billed">{{ visibleTotals().lifetimeBilled | currency }}</td>
+              <td></td>
+            </ng-template>
+          </ui-data-table>
+        } @else {
+          <ui-empty-state icon="search" title="No matching clients" [message]="'No client name contains “' + query().trim() + '”.'">
+            <button ui-button (click)="query.set('')">Clear filter</button>
+          </ui-empty-state>
+        }
+      </ui-card>
+    </div>
+  </ng-template>
+</ui-async-view>
