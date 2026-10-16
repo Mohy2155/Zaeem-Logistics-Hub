@@ -33,9 +33,9 @@
 
 ## 5. Operations Dashboard
 
-- [ ] 5.1 Split the dashboard into `.ts/.html/.scss` with a page header; replace the emoji KPI cards with `ui-stat-card` (icons, supporting context such as "3 of 19 units on hire", neutral receivables colour); verify that the values match the API data in both modes
-- [ ] 5.2 Build the deployments panel (`ui-data-table`, status badges, sorted by start date, excluding completed/cancelled, View Schedule link) and the utilisation panel (per-type bar with "n of N" text); verify with vitest for the filtering and sorting helper
-- [ ] 5.3 Wrap the panels in `ui-async-view` with skeleton/empty/error+retry, and apply the responsive grid (4/2/1 cards, panels stacked below 1024px); verify by stopping the API (error and retry) and at 390/800/1440px
+- [x] 5.1 Split the dashboard into `.ts/.html/.scss` with a page header; replace the emoji KPI cards with `ui-stat-card` (icons, supporting context such as "3 of 19 units on hire", neutral receivables colour); verify that the values match the API data in both modes
+- [x] 5.2 Build the deployments panel (`ui-data-table`, status badges, sorted by start date, excluding completed/cancelled, View Schedule link) and the utilisation panel (per-type bar with "n of N" text); verify with vitest for the filtering and sorting helper
+- [x] 5.3 Wrap the panels in `ui-async-view` with skeleton/empty/error+retry, and apply the responsive grid (4/2/1 cards, panels stacked below 1024px); verify by stopping the API (error and retry) and at 390/800/1440px
 
 ## 6. New Rental Order (portal)
 

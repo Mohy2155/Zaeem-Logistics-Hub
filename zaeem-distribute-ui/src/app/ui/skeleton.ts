@@ -30,7 +30,7 @@ export type SkeletonVariant = 'table' | 'cards' | 'text' | 'block';
   styles: `
     :host { display: grid; gap: var(--space-3); }
     :host(.variant-table) { gap: 0; }
-    :host(.variant-cards) { grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: var(--space-4); }
+    :host(.variant-cards) { grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: var(--space-4); }
     .bar, .block {
       display: block;
       height: 0.75rem;

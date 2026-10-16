@@ -1,0 +1,68 @@
+<ui-page-header title="Dashboard" description="Fleet activity and receivables at a glance.">
+  <a ui-button variant="primary" icon="clipboard-plus" routerLink="/portal">New rental order</a>
+</ui-page-header>
+
+<ui-async-view [state]="summary.state$ | async" what="dashboard data" skeleton="cards" [skeletonCount]="4"
+               (retry)="summary.retry()">
+  <ng-template uiReady let-s>
+    <div class="content">
+      <section class="stats" aria-label="Key figures">
+        <ui-stat-card label="Active deployments" icon="truck" [value]="'' + s.onHire"
+                      [context]="s.upcoming === 0 ? 'No upcoming rentals' : s.upcoming + ' upcoming'" />
+        <ui-stat-card label="Outstanding receivables" icon="wallet" [value]="(s.receivables | currency) ?? ''"
+                      [context]="s.clientsWithBalance + ' of ' + s.totalClients + ' clients have a balance'" />
+        <ui-stat-card label="Fleet utilisation" icon="gauge" [value]="s.utilisation + '%'"
+                      [context]="s.onHire + ' of ' + s.fleetSize + ' units on hire'" />
+        <ui-stat-card label="Active clients" icon="users" [value]="'' + s.activeClients"
+                      [context]="'of ' + s.totalClients + ' clients have current or upcoming hires'" />
+      </section>
+
+      <div class="panels">
+        <ui-card heading="Active deployments" description="Current and upcoming rentals, earliest start first." flush>
+          <a card-actions ui-button variant="ghost" size="sm" icon="calendar-range" routerLink="/scheduler">View schedule</a>
+
+          @if (s.deployments.length) {
+            <ui-data-table [columns]="columns" [rows]="s.deployments" [(sort)]="sort" [trackBy]="trackRental"
+                           caption="Current and upcoming rentals">
+              <ng-template uiCell="machine" let-row>
+                <span class="primary">{{ row.machineName }}</span>
+                @if (row.plateNumber) { <span class="secondary num">{{ row.plateNumber }}</span> }
+              </ng-template>
+              <ng-template uiCell="period" let-row>
+                <span class="primary">{{ row.startDate | date: 'mediumDate' }}</span>
+                <span class="secondary">to {{ row.endDate | date: 'mediumDate' }}</span>
+              </ng-template>
+              <ng-template uiCell="totalAmount" let-row>
+                <span class="num">{{ row.totalAmount | currency }}</span>
+              </ng-template>
+              <ng-template uiCell="status" let-row>
+                <ui-badge [status]="row.status" />
+              </ng-template>
+            </ui-data-table>
+          } @else {
+            <ui-empty-state icon="truck" title="No current or upcoming rentals"
+                            message="Machines you hire out will appear here until their rental ends.">
+              <a ui-button icon="clipboard-plus" routerLink="/portal">New rental order</a>
+            </ui-empty-state>
+          }
+        </ui-card>
+
+        <ui-card heading="Fleet utilisation" description="Units on hire today, by machine type.">
+          <ul class="utilisation">
+            @for (type of s.byType; track type.name) {
+              <li>
+                <div class="type-row">
+                  <span class="type-name">{{ type.name }}</span>
+                  <span class="type-count num">{{ type.onHire }} of {{ type.total }}</span>
+                </div>
+                <div class="bar" aria-hidden="true">
+                  <div class="bar-fill" [style.width.%]="type.percent"></div>
+                </div>
+              </li>
+            }
+          </ul>
+        </ui-card>
+      </div>
+    </div>
+  </ng-template>
+</ui-async-view>

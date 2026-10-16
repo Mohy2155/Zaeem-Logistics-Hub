@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Observable, BehaviorSubject, of } from 'rxjs';
 import { map, tap, delay, catchError } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
+import { MACHINERY_CATALOG } from './fleet';
 
 export interface CompanyResponseDto {
   companyId: number;
@@ -48,6 +49,11 @@ export interface OrderRequestDto {
   items: OrderRequestItem[];
 }
 
+export interface CompaniesSnapshot {
+  companies: CompanyResponseDto[];
+  totalOutstanding: number;
+}
+
 export interface Machinery {
   id: number;
   name: string;
@@ -59,22 +65,13 @@ export interface Machinery {
   providedIn: 'root'
 })
 export class CompanyService {
-  // Mock Machinery Catalog
-  private readonly machineryCatalog: Machinery[] = [
-    { id: 101, name: 'Excavator X3000', category: 'Heavy Duty', dailyRate: 450 },
-    { id: 102, name: 'Caterpillar Loader', category: 'Construction', dailyRate: 320 },
-    { id: 103, name: 'Tower Crane T1', category: 'Cranes', dailyRate: 850 },
-    { id: 104, name: 'Bulldozer D9', category: 'Earthmoving', dailyRate: 550 },
-    { id: 105, name: 'Asphalt Paver', category: 'Roadwork', dailyRate: 400 }
-  ];
-
   private companiesSubject = new BehaviorSubject<CompanyResponseDto[]>([]);
   companies$ = this.companiesSubject.asObservable();
 
   private totalOutstandingSubject = new BehaviorSubject<number>(0);
   totalOutstanding$ = this.totalOutstandingSubject.asObservable();
 
-  private machinerySubject = new BehaviorSubject<Machinery[]>(this.machineryCatalog);
+  private machinerySubject = new BehaviorSubject<Machinery[]>(MACHINERY_CATALOG);
   machinery$ = this.machinerySubject.asObservable();
 
   private companiesUrl = `${environment.apiUrl}/api/Companies`;
@@ -87,21 +84,28 @@ export class CompanyService {
 
   // The API owns balances; re-read them after every mutation instead of patching local copies.
   private refreshCompanies(): void {
-    this.http.get<any>(this.companiesUrl).subscribe({
-      next: (data) => {
-        if (data && data.items) {
-          this.companiesSubject.next(data.items);
-          this.totalOutstandingSubject.next(data.totalSystemOutstanding || 0);
-        } else {
-          this.companiesSubject.next(data);
-          this.totalOutstandingSubject.next(data.reduce((acc: number, curr: any) => acc + (curr.outstandingBalance || 0), 0));
-        }
-      },
+    this.loadCompanies().subscribe({
       error: (err) => {
         console.error('Failed to fetch data from the DB/API. Ensure the backend is running at', this.companiesUrl, err);
-        // We're no longer falling back to mock data here to avoid confusion.
       }
     });
+  }
+
+  /** Fetches clients and the total receivable; errors reach the subscriber (for loading/error views). */
+  loadCompanies(): Observable<CompaniesSnapshot> {
+    return this.http.get<any>(this.companiesUrl).pipe(
+      map((data): CompaniesSnapshot => {
+        if (data && data.items) {
+          return { companies: data.items, totalOutstanding: data.totalSystemOutstanding || 0 };
+        }
+        const companies: CompanyResponseDto[] = data ?? [];
+        return { companies, totalOutstanding: companies.reduce((acc, curr) => acc + (curr.outstandingBalance || 0), 0) };
+      }),
+      tap(snapshot => {
+        this.companiesSubject.next(snapshot.companies);
+        this.totalOutstandingSubject.next(snapshot.totalOutstanding);
+      })
+    );
   }
 
   getCompanies(): Observable<CompanyResponseDto[]> {
@@ -116,7 +120,8 @@ export class CompanyService {
     return this.machinery$.pipe(delay(500));
   }
 
-  getRentals(): Observable<ActiveRental[]> {
+  /** Rental line items; errors reach the subscriber (for loading/error views). */
+  loadRentals(): Observable<ActiveRental[]> {
     return this.http.get<any[]>(`${this.ordersUrl}/rentals`).pipe(
       map(items => items.map(item => ({
         id: item.rentalItemId.toString(),
@@ -133,7 +138,12 @@ export class CompanyService {
         status: item.status,
         taxType: item.taxType,
         taxPercent: item.taxPercent
-      }))),
+      })))
+    );
+  }
+
+  getRentals(): Observable<ActiveRental[]> {
+    return this.loadRentals().pipe(
       catchError(err => {
         console.error('Failed to fetch rentals from', this.ordersUrl, err);
         return of([]);
@@ -155,8 +165,13 @@ export class CompanyService {
     );
   }
 
+  /** Payment receipts; errors reach the subscriber (for loading/error views). */
+  loadReceipts(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.paymentsUrl}/receipts`);
+  }
+
   getReceipts(): Observable<any[]> {
-    return this.http.get<any[]>(`${this.paymentsUrl}/receipts`).pipe(
+    return this.loadReceipts().pipe(
       catchError(err => {
         console.error('Failed to fetch receipts from', this.paymentsUrl, err);
         return of([]);
