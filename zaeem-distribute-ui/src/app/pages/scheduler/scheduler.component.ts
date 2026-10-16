@@ -1,6 +1,9 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Subject, combineLatest } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 import { CompanyService, ActiveRental, Machinery } from '../../services/company';
+import { toLocalDay } from '../../services/rental-dates';
 
 @Component({
   selector: 'app-scheduler',
@@ -292,8 +295,9 @@ import { CompanyService, ActiveRental, Machinery } from '../../services/company'
     }
   `]
 })
-export class SchedulerComponent implements OnInit {
+export class SchedulerComponent implements OnInit, OnDestroy {
   private companyService = inject(CompanyService);
+  private destroy$ = new Subject<void>();
 
   daysRange: Date[] = [];
   fleetSchedule: { name: string; category: string; rentals: any[] }[] = [];
@@ -303,13 +307,18 @@ export class SchedulerComponent implements OnInit {
   rawRentals: ActiveRental[] = [];
 
   ngOnInit(): void {
-    this.companyService.getMachinery().subscribe(machinery => {
-      this.companyService.getRentals().subscribe(rentals => {
+    combineLatest([this.companyService.getMachinery(), this.companyService.getRentals()])
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(([machinery, rentals]) => {
         this.rawMachinery = machinery;
         this.rawRentals = rentals;
         this.refreshScheduler();
       });
-    });
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   navigateScheduler(offset: number): void {
@@ -348,10 +357,8 @@ export class SchedulerComponent implements OnInit {
       const machineRentals = activeRentals.filter(r => r.machineName.toLowerCase().includes(machine.name.toLowerCase()) || machine.name.toLowerCase().includes(r.machineName.toLowerCase()));
 
       const formattedRentals = machineRentals.map(r => {
-        const start = new Date(r.startDate);
-        start.setHours(0,0,0,0);
-        const end = new Date(r.endDate);
-        end.setHours(0,0,0,0);
+        const start = toLocalDay(r.startDate);
+        const end = toLocalDay(r.endDate);
 
         // Filter out if completely outside the 14-day window
         if (end < startWindow || start > endWindow) {
