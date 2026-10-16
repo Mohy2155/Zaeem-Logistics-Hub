@@ -122,8 +122,13 @@
     text-align: end;
   }
 
-  .ui-table td:empty {
+  .ui-table td:empty,
+  .ui-table td:has(> .ui-cell:empty) {
     display: none;
+  }
+
+  .ui-table .ui-cell {
+    min-width: 0;
   }
 
   .ui-table td[data-label]::before {

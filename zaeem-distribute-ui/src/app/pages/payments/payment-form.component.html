@@ -1,0 +1,41 @@
+<form class="form" (ngSubmit)="submit()" novalidate>
+  <ui-form-field label="Client" required>
+    <select #clientSelect uiControl name="clientId" [ngModel]="clientId()" (ngModelChange)="onClientChange($event)">
+      <option [ngValue]="null" disabled>Choose a client…</option>
+      @for (c of clients(); track c.companyId) {
+        <option [ngValue]="c.companyId">{{ c.companyName }} · {{ formatBalance(c.outstandingBalance) }}</option>
+      }
+    </select>
+  </ui-form-field>
+
+  @if (client(); as c) {
+    <div class="amount-row">
+      <ui-form-field label="Amount received" required suffix="USD" [error]="amountError()"
+                     [hint]="hasBalance() ? 'Up to the balance due of ' + formatBalance(c.outstandingBalance) + '.' : ''">
+        <input #amountInput uiControl type="number" name="amount" inputmode="decimal" min="0.01" step="0.01"
+               placeholder="0.00" [disabled]="!hasBalance()" [ngModel]="amount()" (ngModelChange)="onAmountChange($event)"
+               (blur)="amountTouched.set(true)" />
+      </ui-form-field>
+      <button ui-button type="button" class="full" [disabled]="!hasBalance()" (click)="payFullBalance()">Pay full balance</button>
+    </div>
+
+    @if (!hasBalance()) {
+      <p class="note" role="status">
+        {{ c.companyName }} has no balance due{{ c.outstandingBalance <= -0.005 ? ' (' + formatBalance(c.outstandingBalance) + ')' : '' }}, so there is nothing to record.
+      </p>
+    }
+
+    <dl class="preview" aria-live="polite">
+      <div><dt>Current balance</dt><dd class="num">{{ formatBalance(c.outstandingBalance) }}</dd></div>
+      <div><dt>Payment</dt><dd class="num">{{ check().valid ? '− ' + ((amount() ?? 0) | currency) : '—' }}</dd></div>
+      <div class="after"><dt>Balance after payment</dt>
+        <dd class="num">{{ check().valid && check().balanceAfter !== null ? formatBalance(check().balanceAfter!) : '—' }}</dd>
+      </div>
+    </dl>
+  } @else {
+    <p class="note">Choose a client to see their balance due.</p>
+  }
+
+  <button ui-button variant="primary" type="submit" icon="hand-coins" block [busy]="busy()"
+          [disabled]="!check().valid">Record payment</button>
+</form>

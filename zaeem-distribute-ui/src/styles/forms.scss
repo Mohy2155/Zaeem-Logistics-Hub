@@ -65,6 +65,18 @@ input[type='date'].ui-control {
   font-variant-numeric: tabular-nums;
 }
 
+// Room for a suffix up to three characters ("%", "USD").
 .ui-form-field.has-suffix .ui-control {
-  padding-inline-end: var(--space-8);
+  padding-inline-end: 3.25rem;
+}
+
+// Spin buttons would sit on top of the suffix; arrow keys still step the value.
+.ui-form-field.has-suffix input[type='number'].ui-control {
+  appearance: textfield;
+
+  &::-webkit-inner-spin-button,
+  &::-webkit-outer-spin-button {
+    margin: 0;
+    appearance: none;
+  }
 }

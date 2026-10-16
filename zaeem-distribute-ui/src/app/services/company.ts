@@ -13,6 +13,19 @@ export interface CompanyResponseDto {
   defaultDiscount?: number; // Added field
 }
 
+export interface PaymentReceipt {
+  receiptId: string;
+  companyId: number;
+  companyName: string;
+  amount: number;
+  paymentDate: string;
+}
+
+export interface PaymentResult {
+  result: string;
+  receiptId?: string;
+}
+
 export interface ActiveRental {
   id: string;
   orderId?: number; // Backend BulkOrderId; absent for rentals created before orders were linked
@@ -159,18 +172,18 @@ export class CompanyService {
   }
 
   // Deducts from outstandingBalance
-  recordPayment(companyId: number, amount: number): Observable<any> {
-    return this.http.post<any>(`${this.paymentsUrl}/record`, { companyId, amount }).pipe(
+  recordPayment(companyId: number, amount: number): Observable<PaymentResult> {
+    return this.http.post<PaymentResult>(`${this.paymentsUrl}/record`, { companyId, amount }).pipe(
       tap(() => this.refreshCompanies())
     );
   }
 
   /** Payment receipts; errors reach the subscriber (for loading/error views). */
-  loadReceipts(): Observable<any[]> {
-    return this.http.get<any[]>(`${this.paymentsUrl}/receipts`);
+  loadReceipts(): Observable<PaymentReceipt[]> {
+    return this.http.get<PaymentReceipt[]>(`${this.paymentsUrl}/receipts`);
   }
 
-  getReceipts(): Observable<any[]> {
+  getReceipts(): Observable<PaymentReceipt[]> {
     return this.loadReceipts().pipe(
       catchError(err => {
         console.error('Failed to fetch receipts from', this.paymentsUrl, err);
