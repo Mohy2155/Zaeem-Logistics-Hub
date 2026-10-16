@@ -23,6 +23,10 @@ Dashboard values SHALL be computed only from loaded rental and client data. Tren
 ### Requirement: Neutral presentation of balances
 Outstanding receivables SHALL be shown in the standard text colour. Warning colour MUST be used only for an explicitly defined condition, and that condition MUST be labelled in text.
 
+#### Scenario: Receivables match the Client Ledger
+- **WHEN** two clients owe $85,000.00 and $12,500.00 and a third holds a $606.50 credit
+- **THEN** Outstanding Receivables shows $97,500.00, the same as the Client Ledger's balance due, because a credit is not netted against what other clients owe
+
 #### Scenario: Normal receivables
 - **WHEN** total receivables are $98,972.63
 - **THEN** the value is shown in the standard text colour without warning styling
