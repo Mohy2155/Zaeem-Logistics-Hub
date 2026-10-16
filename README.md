@@ -142,6 +142,12 @@ ZAEEM_TEST_SQL="Server=localhost,1433;User Id=sa;Password=<password>;TrustServer
 ```
 The API's startup seed data can be switched off with `--Seed:Enabled=false`; the tests do this so each test starts from an empty database.
 
+A run that is killed partway, for example with Ctrl+C or by stopping the debugger, can't drop its database. To remove every leftover test database (names matching `ZaeemDistribute_Test_*` only; `ZaeemDistribute` is never touched):
+```bash
+sqlcmd -S localhost -E -C -Q "DECLARE @sql nvarchar(max) = N''; SELECT @sql += N'ALTER DATABASE ' + QUOTENAME(name) + N' SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE ' + QUOTENAME(name) + N'; ' FROM sys.databases WHERE name LIKE N'ZaeemDistribute[_]Test[_]%'; EXEC (@sql);"
+```
+Don't run it while a test run is in progress.
+
 ---
 
 ## Checks
