@@ -1,10 +1,9 @@
-# Spec Delta
+# client-ledger-ui Specification
 
 ## Purpose
-
 Defines the finance screens: the Client Ledger (route `/admin`) for client balances and lifetime billing, and Payments (route `/payments`) for recording client payments and reviewing receipts. Each piece of financial information has exactly one home.
 
-## ADDED Requirements
+## Requirements
 
 ### Requirement: Single home for balances
 Client balances and lifetime billing SHALL be presented in full on the Client Ledger page only. The Payments page MUST NOT repeat the full balance table; it shows a client's current balance only within the payment form.
@@ -25,11 +24,15 @@ The Client Ledger SHALL list each client with name, default discount, balance du
 - **THEN** only clients whose names contain "swift" (case-insensitive) are listed
 
 ### Requirement: Credit balances
-A negative balance SHALL be presented as a credit in the client's favour, labelled in text (for example "$606.50 credit"), rather than as a negative debt.
+A negative balance SHALL be presented as a credit in the client's favour, labelled in text, rather than as a negative debt. Where no Credit label accompanies the amount (for example in the payment form or on a receipt), the amount itself carries the word ("$606.50 credit").
 
 #### Scenario: Client in credit
 - **WHEN** a client's balance is -606.50
-- **THEN** the ledger shows "$606.50 credit" with a Credit label
+- **THEN** the ledger shows a Credit label with the amount "$606.50", and no minus sign
+
+#### Scenario: Credit outside the ledger table
+- **WHEN** the payment form shows the balance of a client whose balance is -606.50
+- **THEN** it reads "$606.50 credit"
 
 ### Requirement: Ledger to payment shortcut
 Each ledger row with a balance due SHALL offer a Record Payment action that opens the Payments page with that client pre-selected.
