@@ -1,0 +1,30 @@
+<ui-page-header title="New Rental Order"
+                description="Build a multi-item order for one client, then place it to bill the client's account." />
+
+<ui-async-view [state]="data.state$ | async" what="clients and bookings" skeleton="block" [skeletonCount]="2"
+               (retry)="data.retry()">
+  <ng-template uiReady>
+    <div class="workspace">
+      <ui-card heading="Order details" description="Add one machine at a time; each becomes a line on the invoice.">
+        <app-order-form [companies]="companies()" [machinery]="machinery" [rentals]="rentals()" [cart]="cart()"
+                        [busy]="placing()" [(clientId)]="clientId" (add)="addItem($event)" />
+      </ui-card>
+
+      <section #summary class="summary" tabindex="-1" aria-label="Order summary">
+        <ui-card heading="Order summary">
+          <ui-badge card-actions tone="neutral">{{ cart().length }} {{ cart().length === 1 ? 'item' : 'items' }}</ui-badge>
+          <app-order-summary [items]="cart()" [clientName]="client()?.companyName ?? ''" [busy]="placing()"
+                             (remove)="removeItem($event)" (clear)="clearCart()" (place)="placeOrder()" />
+        </ui-card>
+      </section>
+    </div>
+
+    @if (cart().length) {
+      <div class="total-bar">
+        <p><span class="total-label">{{ cart().length }} {{ cart().length === 1 ? 'item' : 'items' }} · Total</span>
+          <strong class="num">{{ total() | currency }}</strong></p>
+        <button ui-button size="sm" variant="primary" (click)="scrollToSummary()">Review order</button>
+      </div>
+    }
+  </ng-template>
+</ui-async-view>
