@@ -54,8 +54,26 @@ Maintains a complete audit trail of financial activity through immutable ledger 
 
 Normalizes field-submitted telemetry logs, work records, and timestamp variations into validated billing data suitable for payroll and invoicing operations.
 ### Payment Registration and Receipt Generation
-Added a separate component to record payments received from the partnered companies, with a receipt generated with the company, payment type and receipt number.
 
+Payments received from clients are recorded on the Payments page. The form checks the amount against the client's balance due, a confirmation step shows the resulting balance, and the receipt (receipt number, client, amount, remaining balance) downloads as PDF or Excel.
+
+---
+
+## Screens
+
+| Screen | Route | What it's for |
+|--------|-------|---------------|
+| Dashboard | `/dashboard` | Units on hire, receivables, fleet utilisation by machine type, and current and upcoming deployments. |
+| New Rental Order | `/portal` | Build a multi-item order for one client: per-line pricing preview, booking-conflict warnings as you type, default client discount, VAT/GST/sales tax. Placing the order shows the invoice with PDF and Excel downloads. |
+| Fleet Schedule | `/scheduler` | A 14-day timeline per machine type. Overlapping bookings get their own lane; select a booking for its details. |
+| Client Ledger | `/admin` | Every client's balance due and lifetime billing, sortable and filterable, with credits labelled. Record payment jumps to Payments with the client selected. |
+| Payments | `/payments` | Record a payment (confirmed first) and browse the receipt history. |
+
+The interface works from 360px phones to wide desktops (the sidebar becomes a drawer on small screens), is fully keyboard-operable, and meets WCAG AA contrast in both themes.
+
+**Light and dark themes.** The app follows your operating system's setting until you choose one with the theme toggle in the sidebar (or the top bar on phones); the choice is remembered in the browser.
+
+**Demo notice.** The GitHub Pages build shows a "Demo mode" banner: data lives only in that browser. **Reset demo data** asks for confirmation, then restores the sample data (your theme choice is kept). The full-stack build has no banner.
 
 ---
 
@@ -65,7 +83,10 @@ Added a separate component to record payments received from the partnered compan
 |------|------------------------------------|-------------|
 | Local full stack | `npm start` | Real .NET API + SQL Server database |
 | Self-hosted production build | `npm run build` | Real .NET API + SQL Server database |
+| Demo build without publishing | `npm run build:demo` | Browser-only demo data (`localStorage`) |
 | GitHub Pages demo | `npm run deploy` | Browser-only demo data (`localStorage`), no server needed |
+
+Run the frontend unit tests with `npm test` (Vitest, including the design-system guard tests).
 
 The demo build (`prod-demo` configuration) swaps in `environment.prod-demo.ts`, which turns on the mock API interceptor. Every other build talks to the real API at `http://localhost:5234`.
 

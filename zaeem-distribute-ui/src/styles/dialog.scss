@@ -1,0 +1,21 @@
+// CDK dialog panel and backdrop (app/ui/dialog.ts). Global because the CDK renders them in the overlay container.
+.ui-dialog-backdrop {
+  background: var(--color-scrim);
+}
+
+// Lock page scrolling while a dialog is open; the stable gutter keeps the layout from shifting sideways.
+html {
+  scrollbar-gutter: stable;
+}
+
+html:has(.ui-dialog-backdrop) {
+  overflow: hidden;
+}
+
+.ui-dialog-panel {
+  width: min(30rem, calc(100vw - 2 * var(--space-4)));
+}
+
+.ui-dialog-panel.ui-dialog-panel--wide {
+  width: min(40rem, calc(100vw - 2 * var(--space-4)));
+}

@@ -49,7 +49,7 @@ export function normalizePlate(plate?: string): string {
 }
 
 /** First non-cancelled booking of the same plate whose dates overlap (end dates inclusive). */
-export function findBookingConflict<T extends Booking>(candidate: Booking, existing: T[]): T | undefined {
+export function findBookingConflict<T extends Booking>(candidate: Booking, existing: readonly T[]): T | undefined {
   const plate = normalizePlate(candidate.plateNumber);
   const start = toLocalDay(candidate.startDate);
   const end = toLocalDay(candidate.endDate);

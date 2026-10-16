@@ -1,0 +1,68 @@
+<ui-page-header title="Payments" description="Record what clients pay and keep track of every receipt issued." />
+
+<ui-async-view [state]="data.state$ | async" what="payments" skeleton="table" [skeletonCount]="4" (retry)="data.retry()">
+  <ng-template uiReady>
+    <div class="layout">
+      @if (recorded(); as r) {
+        <ui-card heading="Payment recorded" class="record">
+          <div #receiptPanel class="receipt" role="status" tabindex="-1">
+            <div class="receipt-head">
+              <ui-icon name="circle-check" [size]="22" class="ok" />
+              <p>The balance for {{ r.companyName }} is updated. Download the receipt to send it on.</p>
+            </div>
+            <dl class="facts">
+              <div><dt>Receipt</dt><dd class="num">{{ r.receiptId }}</dd></div>
+              <div><dt>Client</dt><dd>{{ r.companyName }}</dd></div>
+              <div><dt>Amount received</dt><dd class="num">{{ r.amount | currency }}</dd></div>
+              <div class="after"><dt>Balance now</dt><dd class="num">{{ formatBalance(r.remainingBalance) }}</dd></div>
+            </dl>
+            <div class="downloads">
+              <button ui-button icon="file-text" (click)="downloadPdf(r)">Download PDF</button>
+              <button ui-button icon="file-spreadsheet" (click)="downloadExcel(r)">Download Excel</button>
+            </div>
+            <button ui-button variant="primary" icon="plus" block (click)="showForm()">Record another payment</button>
+          </div>
+        </ui-card>
+      } @else {
+        <ui-card heading="Record a payment" description="Payments reduce the client's balance due." class="record">
+          <app-payment-form [clients]="clients()" [initialClientId]="initialClientId()" [busy]="busy()" (submitted)="record($event)" />
+        </ui-card>
+      }
+
+      <ui-card heading="Receipt history" description="Newest first." flush class="history">
+        <div card-actions>
+          @if (receipts().length) {
+            <select class="ui-control client-filter" aria-label="Show receipts for" [value]="receiptClient() ?? ''"
+                    (change)="receiptClient.set($any($event.target).value === '' ? null : +$any($event.target).value)">
+              <option value="">All clients</option>
+              @for (c of receiptClients(); track c.companyId) {
+                <option [value]="c.companyId">{{ c.companyName }}</option>
+              }
+            </select>
+          }
+        </div>
+
+        @if (receipts().length) {
+          <ui-data-table [columns]="receiptColumns" [rows]="visibleReceipts()" [(sort)]="receiptSort" [trackBy]="trackReceipt"
+                         caption="Payment receipts">
+            <ng-template uiCell="receiptId" let-r><span class="num receipt-id">{{ r.receiptId }}</span></ng-template>
+            <ng-template uiCell="amount" let-r><span class="num">{{ r.amount | currency }}</span></ng-template>
+            <ng-template uiCell="paymentDate" let-r>
+              <span class="primary">{{ receiptTime(r.paymentDate) | date: 'mediumDate' }}</span>
+              <span class="secondary">{{ receiptTime(r.paymentDate) | date: 'shortTime' }}</span>
+            </ng-template>
+          </ui-data-table>
+          <p class="history-total">
+            {{ visibleReceipts().length }} {{ visibleReceipts().length === 1 ? 'receipt' : 'receipts' }} ·
+            <span class="num">{{ receiptTotal() | currency }}</span> received
+          </p>
+        } @else {
+          <ui-empty-state icon="receipt" title="No payments recorded yet"
+                          message="Receipts appear here, newest first, as soon as a payment is recorded.">
+            <button ui-button icon="hand-coins" (click)="showForm()">Record a payment</button>
+          </ui-empty-state>
+        }
+      </ui-card>
+    </div>
+  </ng-template>
+</ui-async-view>

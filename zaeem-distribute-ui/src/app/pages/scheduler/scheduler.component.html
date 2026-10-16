@@ -1,0 +1,60 @@
+<ui-page-header title="Fleet Schedule" description="Who has which machine, and when. Overlapping bookings of a type get their own lane." />
+
+<ui-card flush [heading]="rangeLabel()" [description]="rangeMeta()">
+  <div card-actions class="nav">
+    <button ui-icon-button icon="chevron-left" label="Previous 14 days" (click)="move(-1)"></button>
+    <button ui-button size="sm" [disabled]="offset() === 0" (click)="move(0)">Today</button>
+    <button ui-icon-button icon="chevron-right" label="Next 14 days" (click)="move(1)"></button>
+  </div>
+  <p class="sr-only" aria-live="polite">Showing {{ rangeLabel() }}</p>
+
+  <ui-async-view [state]="data.state$ | async" what="the schedule" skeleton="table" [skeletonCount]="5" (retry)="data.retry()">
+    <ng-template uiReady>
+      <div class="timeline" role="region" tabindex="0" [attr.aria-label]="'Bookings from ' + rangeLabel()">
+        <div class="grid-row header" aria-hidden="true">
+          <div class="machine-cell corner">Machine</div>
+          @for (day of days(); track day.getTime()) {
+            <div class="day-head" [class.weekend]="isWeekend(day)" [class.today]="isToday(day)">
+              <span class="dow">{{ day | date: 'EEE' }}</span>
+              <span class="dom num">{{ day | date: 'd' }}</span>
+              <span class="mon">{{ $first || day.getDate() === 1 ? (day | date: 'MMM') : '' }}</span>
+            </div>
+          }
+        </div>
+
+        @for (row of rows(); track row.name) {
+          <div class="grid-row lanes" [style.--lanes]="row.laneCount">
+            <div class="machine-cell">
+              <span class="machine-name">{{ row.name }}</span>
+              <span class="machine-meta">{{ row.category }}@if (row.laneCount > 1) { · {{ row.laneCount }} lanes }</span>
+            </div>
+            @for (day of days(); track day.getTime(); let i = $index) {
+              <div class="day-bg" [style.grid-column]="i + 2" [class.weekend]="isWeekend(day)" [class.today]="isToday(day)"></div>
+            }
+            @for (bar of row.bars; track bar.booking.id) {
+              <button type="button" class="bar" [class]="'status-' + bar.status"
+                      [class.cont-before]="bar.continuesBefore" [class.cont-after]="bar.continuesAfter"
+                      [style.grid-row]="bar.lane + 1" [style.grid-column]="(bar.startColumn + 2) + ' / span ' + bar.span"
+                      [attr.aria-label]="barLabel(row, bar)" (click)="openDetails(bar.booking)">
+                @if (bar.continuesBefore) { <ui-icon class="cue" name="chevron-left" [size]="14" /> }
+                <span class="bar-text">
+                  <span class="bar-client">{{ bar.booking.companyName }}</span>
+                  @if (bar.booking.plateNumber) { {{ ' ' }}<span class="bar-plate num">{{ bar.booking.plateNumber }}</span> }
+                </span>
+                @if (bar.continuesAfter) { <ui-icon class="cue" name="chevron-right" [size]="14" /> }
+              </button>
+            }
+          </div>
+        }
+      </div>
+
+      <ul class="legend">
+        <li><span class="swatch status-Active"></span>Active (on hire)</li>
+        <li><span class="swatch status-Pending"></span>Pending (starts later)</li>
+        <li><span class="swatch status-Completed"></span>Completed</li>
+        <li><ui-icon name="chevron-right" [size]="14" />Continues beyond this period</li>
+        <li><span class="swatch weekend"></span>Weekend</li>
+      </ul>
+    </ng-template>
+  </ui-async-view>
+</ui-card>
