@@ -1,394 +1,91 @@
-import { Component, OnInit, OnDestroy, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { Subject, combineLatest } from 'rxjs';
-import { takeUntil } from 'rxjs/operators';
-import { CompanyService, ActiveRental, Machinery } from '../../services/company';
-import { toLocalDay } from '../../services/rental-dates';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { AsyncPipe, DatePipe, formatDate } from '@angular/common';
+import { tap } from 'rxjs';
+import { ActiveRental, CompanyService } from '../../services/company';
+import { MACHINERY_CATALOG } from '../../services/fleet';
+import { RentalStatus, rentalStatus, toLocalDay } from '../../services/rental-dates';
+import { loadState } from '../../ui/load-state';
+import { UiAsyncView, UiReady } from '../../ui/async-view';
+import { UiPageHeader } from '../../ui/page-header';
+import { UiCard } from '../../ui/card';
+import { UiButton, UiIconButton } from '../../ui/button';
+import { UiIcon } from '../../ui/icon';
+import { UiDialogService, nextDialogTitleId } from '../../ui/dialog';
+import { BookingDetailsComponent, BookingDetailsData } from './booking-details.component';
+import { PlacedBooking, WINDOW_DAYS, layoutRow, windowDays } from './schedule-layout';
 
+interface ScheduleRow {
+  name: string;
+  category: string;
+  laneCount: number;
+  bars: (PlacedBooking<ActiveRental> & { status: RentalStatus })[];
+}
+
+/** Rows for every catalogue machine type, plus any type that only appears in bookings. */
+export function buildRows(rentals: readonly ActiveRental[], days: readonly Date[], today: Date = new Date()): ScheduleRow[] {
+  const types = MACHINERY_CATALOG.map(m => ({ name: m.name, category: m.category }));
+  for (const r of rentals) {
+    if (!types.some(t => t.name.toLowerCase() === r.machineName.toLowerCase())) types.push({ name: r.machineName, category: 'Other' });
+  }
+  return types.map(type => {
+    const layout = layoutRow(rentals.filter(r => r.machineName.toLowerCase() === type.name.toLowerCase()), days);
+    return { ...type, laneCount: layout.laneCount, bars: layout.bars.map(bar => ({ ...bar, status: rentalStatus(bar.booking, today) })) };
+  });
+}
+
+// Fleet Schedule: a 14-day timeline of bookings per machine type, with overlapping bookings in lanes.
 @Component({
   selector: 'app-scheduler',
   standalone: true,
-  imports: [CommonModule],
-  template: `
-    <div class="scheduler-container">
-      <header class="content-header">
-        <div class="breadcrumb">Executive Dashboard / Logistics</div>
-        <h2>Machinery Schedule</h2>
-      </header>
-
-      <!-- Calendar Range Overview -->
-      <div class="timeline-scope glass-card">
-        <div class="scope-header">
-          <div class="scope-info">
-            <h3>Rental Timeline Overview</h3>
-            <p class="text-muted" style="margin-bottom: 1rem;">Displays active machinery deployments across the current scheduling window.</p>
-            <div style="display: flex; gap: 1rem;">
-              <button class="btn-text" (click)="navigateScheduler(-14)" style="padding: 0.5rem 1rem; border: 1px solid #cbd5e1; border-radius: 8px; cursor: pointer; background: white; font-weight: 600;">&lt; Previous 14 Days</button>
-              <button class="btn-text" (click)="navigateScheduler(14)" style="padding: 0.5rem 1rem; border: 1px solid #cbd5e1; border-radius: 8px; cursor: pointer; background: white; font-weight: 600;">Next 14 Days &gt;</button>
-            </div>
-          </div>
-          <div class="legend">
-            <span class="legend-item"><span class="color-dot active"></span> Deployments</span>
-            <span class="legend-item"><span class="color-dot available"></span> Available</span>
-          </div>
-        </div>
-
-        <!-- Schedule Grid -->
-        <div class="schedule-grid">
-          <!-- Calendar Header Columns -->
-          <div class="grid-header-row">
-            <div class="asset-col">Fleet Machinery</div>
-            <div class="timeline-col">
-              <div class="timeline-day-header" *ngFor="let day of daysRange">
-                {{ day | date:'dd MMM' }}
-              </div>
-            </div>
-          </div>
-
-          <!-- Assets Schedules -->
-          <div class="grid-asset-row" *ngFor="let asset of fleetSchedule">
-            <div class="asset-col">
-              <div class="asset-name">{{ asset.name }}</div>
-              <small class="asset-category">{{ asset.category }}</small>
-            </div>
-            <div class="timeline-col grid-bars">
-              <!-- Grid background lines -->
-              <div class="grid-day-cell" *ngFor="let day of daysRange"></div>
-
-              <!-- Active timeline blocks -->
-              <div 
-                *ngFor="let rental of asset.rentals" 
-                class="timeline-block"
-                [style.left.%]="rental.leftPercent"
-                [style.width.%]="rental.widthPercent"
-                [attr.title]="rental.companyName + ' | ' + (rental.startDate | date:'shortDate') + ' - ' + (rental.endDate | date:'shortDate')"
-              >
-                <div class="timeline-block-content">
-                  <span class="client-label">{{ rental.companyName }}</span>
-                  <span class="plate-label font-mono">{{ rental.plateNumber }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  `,
-  styles: [`
-    .scheduler-container {
-      display: flex;
-      flex-direction: column;
-      gap: 2rem;
-      padding: 1rem 0;
-      animation: fadeIn 0.4s ease-out;
-    }
-
-    .content-header {
-      margin-bottom: 0.5rem;
-    }
-
-    .breadcrumb {
-      font-size: 0.75rem;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      color: #94a3b8;
-      margin-bottom: 0.25rem;
-    }
-
-    h2 {
-      font-size: 2rem;
-      font-weight: 700;
-      color: #0f172a;
-    }
-
-    .glass-card {
-      background: rgba(255, 255, 255, 0.7);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border: 1px solid rgba(255, 255, 255, 0.45);
-      border-radius: 16px;
-      box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.05);
-      padding: 1.5rem;
-    }
-
-    .scope-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 2rem;
-      border-bottom: 1px solid rgba(226, 232, 240, 0.6);
-      padding-bottom: 1rem;
-      flex-wrap: wrap;
-      gap: 1rem;
-    }
-
-    .scope-info h3 {
-      font-size: 1.2rem;
-      font-weight: 600;
-      color: #1e293b;
-      margin-bottom: 0.25rem;
-    }
-
-    .legend {
-      display: flex;
-      gap: 1.5rem;
-    }
-
-    .legend-item {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      font-size: 0.85rem;
-      font-weight: 600;
-      color: #475569;
-    }
-
-    .color-dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      display: inline-block;
-    }
-
-    .color-dot.active {
-      background: linear-gradient(135deg, #3b82f6, #1d4ed8);
-    }
-
-    .color-dot.available {
-      background: #e2e8f0;
-    }
-
-    .schedule-grid {
-      display: flex;
-      flex-direction: column;
-      border: 1px solid rgba(226, 232, 240, 0.8);
-      border-radius: 12px;
-      overflow: hidden;
-    }
-
-    .grid-header-row {
-      display: flex;
-      background: rgba(248, 250, 252, 0.8);
-      border-bottom: 2px solid #e2e8f0;
-    }
-
-    .grid-asset-row {
-      display: flex;
-      border-bottom: 1px solid rgba(226, 232, 240, 0.6);
-    }
-
-    .grid-asset-row:last-child {
-      border-bottom: none;
-    }
-
-    .asset-col {
-      width: 200px;
-      min-width: 200px;
-      padding: 1.25rem;
-      border-right: 1px solid #e2e8f0;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      background: rgba(255, 255, 255, 0.4);
-    }
-
-    .asset-name {
-      font-weight: 600;
-      color: #0f172a;
-      font-size: 0.9rem;
-    }
-
-    .asset-category {
-      font-size: 0.75rem;
-      color: #64748b;
-    }
-
-    .timeline-col {
-      flex-grow: 1;
-      display: grid;
-      grid-template-columns: repeat(14, 1fr);
-      position: relative;
-    }
-
-    .timeline-day-header {
-      padding: 0.75rem 0.5rem;
-      font-size: 0.75rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: #475569;
-      text-align: center;
-      border-right: 1px solid rgba(226, 232, 240, 0.8);
-    }
-
-    .timeline-day-header:last-child {
-      border-right: none;
-    }
-
-    .grid-bars {
-      padding: 0.75rem 0;
-      min-height: 70px;
-      align-items: center;
-    }
-
-    .grid-day-cell {
-      height: 100%;
-      border-right: 1px solid rgba(226, 232, 240, 0.5);
-    }
-
-    .grid-day-cell:last-child {
-      border-right: none;
-    }
-
-    .timeline-block {
-      position: absolute;
-      top: 50%;
-      transform: translateY(-50%);
-      height: 44px;
-      background: linear-gradient(135deg, #3b82f6, #2563eb);
-      color: #ffffff;
-      border-radius: 8px;
-      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
-      display: flex;
-      align-items: center;
-      padding: 0 0.75rem;
-      font-size: 0.75rem;
-      font-weight: 600;
-      overflow: hidden;
-      white-space: nowrap;
-      text-overflow: ellipsis;
-      cursor: pointer;
-      transition: all 0.2s ease;
-    }
-
-    .timeline-block:hover {
-      transform: translateY(-50%) scale(1.02);
-      box-shadow: 0 6px 16px rgba(37, 99, 235, 0.35);
-      background: linear-gradient(135deg, #2563eb, #1d4ed8);
-    }
-
-    .timeline-block-content {
-      display: flex;
-      flex-direction: column;
-      gap: 0.125rem;
-      overflow: hidden;
-    }
-
-    .client-label {
-      font-weight: 700;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .plate-label {
-      opacity: 0.8;
-      font-size: 0.65rem;
-    }
-
-    .font-mono {
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    }
-
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-  `]
+  imports: [AsyncPipe, DatePipe, UiAsyncView, UiReady, UiPageHeader, UiCard, UiButton, UiIconButton, UiIcon],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  templateUrl: './scheduler.component.html',
+  styleUrl: './scheduler.component.scss',
 })
-export class SchedulerComponent implements OnInit, OnDestroy {
-  private companyService = inject(CompanyService);
-  private destroy$ = new Subject<void>();
+export class SchedulerComponent {
+  private readonly companyService = inject(CompanyService);
+  private readonly dialogs = inject(UiDialogService);
 
-  daysRange: Date[] = [];
-  fleetSchedule: { name: string; category: string; rentals: any[] }[] = [];
+  private readonly today = toLocalDay(new Date());
+  /** Window offset in whole windows from today. */
+  protected readonly offset = signal(0);
+  protected readonly days = computed(() =>
+    windowDays(new Date(this.today.getFullYear(), this.today.getMonth(), this.today.getDate() + this.offset() * WINDOW_DAYS)));
+  protected readonly rangeLabel = computed(() => {
+    const days = this.days();
+    return `${formatDate(days[0], 'MMM d', 'en-US')} – ${formatDate(days[days.length - 1], 'MMM d, y', 'en-US')}`;
+  });
 
-  viewportOffsetDays: number = 0;
-  rawMachinery: Machinery[] = [];
-  rawRentals: ActiveRental[] = [];
+  /** null until the first successful load, so the count isn't shown for data we don't have. */
+  private readonly rentals = signal<ActiveRental[] | null>(null);
+  protected readonly rows = computed(() => buildRows(this.rentals() ?? [], this.days(), this.today));
+  protected readonly bookingsInView = computed(() =>
+    this.rentals() === null ? null : this.rows().reduce((n, row) => n + row.bars.length, 0));
 
-  ngOnInit(): void {
-    combineLatest([this.companyService.getMachinery(), this.companyService.getRentals()])
-      .pipe(takeUntil(this.destroy$))
-      .subscribe(([machinery, rentals]) => {
-        this.rawMachinery = machinery;
-        this.rawRentals = rentals;
-        this.refreshScheduler();
-      });
+  protected readonly data = loadState(() => this.companyService.loadRentals().pipe(tap(r => this.rentals.set(r))), () => false);
+
+  protected move(windows: number): void {
+    this.offset.update(o => (windows === 0 ? 0 : o + windows));
   }
 
-  ngOnDestroy(): void {
-    this.destroy$.next();
-    this.destroy$.complete();
+  protected isToday(day: Date): boolean {
+    return day.getTime() === this.today.getTime();
   }
 
-  navigateScheduler(offset: number): void {
-    this.viewportOffsetDays += offset;
-    this.refreshScheduler();
+  protected isWeekend(day: Date): boolean {
+    return day.getDay() === 0 || day.getDay() === 6;
   }
 
-  refreshScheduler(): void {
-    this.setupDaysRange();
-    this.buildSchedule(this.rawMachinery, this.rawRentals);
+  protected barLabel(row: ScheduleRow, bar: ScheduleRow['bars'][number]): string {
+    const r = bar.booking;
+    const range = `${formatDate(r.startDate, 'mediumDate', 'en-US')} to ${formatDate(r.endDate, 'mediumDate', 'en-US')}`;
+    const cues = [bar.continuesBefore ? 'starts before this period' : '', bar.continuesAfter ? 'continues after this period' : '']
+      .filter(Boolean).join(', ');
+    return `${r.companyName}, ${row.name}${r.plateNumber ? ' ' + r.plateNumber : ''}, ${range}, ${bar.status}${cues ? ', ' + cues : ''}`;
   }
 
-  setupDaysRange(): void {
-    const range: Date[] = [];
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    today.setDate(today.getDate() + this.viewportOffsetDays);
-    
-    // Use a 14-day view
-    for (let i = 0; i < 14; i++) {
-      const d = new Date(today);
-      d.setDate(today.getDate() + i);
-      range.push(d);
-    }
-    this.daysRange = range;
-  }
-
-  buildSchedule(machinery: Machinery[], rentals: ActiveRental[]): void {
-    const activeRentals = rentals.filter(r => r.status !== 'Cancelled' && r.status !== 'Returned');
-    const startWindow = new Date(this.daysRange[0]);
-    startWindow.setHours(0,0,0,0);
-    const endWindow = new Date(this.daysRange[this.daysRange.length - 1]);
-    endWindow.setHours(0,0,0,0);
-
-    this.fleetSchedule = machinery.map(machine => {
-      const machineRentals = activeRentals.filter(r => r.machineName.toLowerCase().includes(machine.name.toLowerCase()) || machine.name.toLowerCase().includes(r.machineName.toLowerCase()));
-
-      const formattedRentals = machineRentals.map(r => {
-        const start = toLocalDay(r.startDate);
-        const end = toLocalDay(r.endDate);
-
-        // Filter out if completely outside the 14-day window
-        if (end < startWindow || start > endWindow) {
-          return null;
-        }
-
-        // Clamp dates to the current window for rendering
-        const clampedStart = start < startWindow ? startWindow : start;
-        const clampedEnd = end > endWindow ? endWindow : end;
-
-        // Calculate visual percentages
-        const totalDurationMs = endWindow.getTime() - startWindow.getTime() + 24 * 60 * 60 * 1000;
-        const leftMs = clampedStart.getTime() - startWindow.getTime();
-        const widthMs = clampedEnd.getTime() - clampedStart.getTime() + 24 * 60 * 60 * 1000;
-
-        const leftPercent = Math.max(0, Math.min(100, (leftMs / totalDurationMs) * 100));
-        const widthPercent = Math.max(0, Math.min(100 - leftPercent, (widthMs / totalDurationMs) * 100));
-
-        return {
-          ...r,
-          leftPercent,
-          widthPercent
-        };
-      }).filter(r => r !== null);
-
-      return {
-        name: machine.name,
-        category: machine.category,
-        rentals: formattedRentals
-      };
-    });
+  protected openDetails(rental: ActiveRental): void {
+    const titleId = nextDialogTitleId();
+    this.dialogs.open<void, BookingDetailsData>(BookingDetailsComponent, { data: { rental, titleId }, ariaLabelledBy: titleId });
   }
 }

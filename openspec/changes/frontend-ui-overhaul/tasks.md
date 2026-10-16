@@ -49,10 +49,10 @@
 
 ## 7. Fleet Schedule
 
-- [ ] 7.1 Implement the lane-packing helper per design D6; verify with vitest for overlapping, back-to-back (same lane), contained and window-clipped bookings
-- [ ] 7.2 Rebuild the scheduler view (page header, range label, Previous/Today/Next, sticky machine column with horizontal scroll inside the timeline, today column, weekend shading, lanes with auto row height, continuation cues, cancelled bookings hidden); verify with seeded data plus two overlapping test bookings at 390 and 1440px
-- [ ] 7.3 Make booking bars focusable buttons that open a `booking-details` dialog (client, machine, plate, dates, days, amount, status badge) with focus restore; verify by keyboard: Tab to a bar, press Enter, press Escape, and confirm focus returns to it
-- [ ] 7.4 Wrap the schedule in `ui-async-view` (skeleton, error+retry); verify by stopping the API in full-stack mode
+- [x] 7.1 Implement the lane-packing helper per design D6; verify with vitest for overlapping, back-to-back (same lane), contained and window-clipped bookings
+- [x] 7.2 Rebuild the scheduler view (page header, range label, Previous/Today/Next, sticky machine column with horizontal scroll inside the timeline, today column, weekend shading, lanes with auto row height, continuation cues, cancelled bookings hidden); verify with seeded data plus two overlapping test bookings at 390 and 1440px
+- [x] 7.3 Make booking bars focusable buttons that open a `booking-details` dialog (client, machine, plate, dates, days, amount, status badge) with focus restore; verify by keyboard: Tab to a bar, press Enter, press Escape, and confirm focus returns to it
+- [x] 7.4 Wrap the schedule in `ui-async-view` (skeleton, error+retry); verify by stopping the API in full-stack mode
 
 ## 8. Client Ledger and Payments
 
