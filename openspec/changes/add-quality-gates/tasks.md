@@ -37,9 +37,9 @@
 ## 5. Continuous integration
 
 - [x] 5.1 Add `.github/workflows/ci.yml` per D8 (triggers, concurrency, read-only permissions, `frontend`, `backend` with the SQL Server 2022 service, and `e2e` with an artifact upload on failure); verify the workflow file passes `actionlint`, or GitHub's workflow validation on push
-- [ ] 5.2 Push the branch and open a pull request; verify all three checks run as separate named checks and pass
+- [x] 5.2 Push the branch and open a pull request; verify all three checks run as separate named checks and pass
 - [x] 5.3 Prove each gate: on a throwaway commit, break one unit test, one API test and one end-to-end step; verify each fails only its own check, and the end-to-end failure offers a trace artifact; then drop the commit
-- [ ] 5.4 Verify no job deploys or pushes (no `npm run deploy`, no write permissions), add a CI status badge and a "Checks" section to the root README, and verify the badge renders on the pull request's README view
+- [x] 5.4 Verify no job deploys or pushes (no `npm run deploy`, no write permissions), add a CI status badge and a "Checks" section to the root README, and verify the badge renders on the pull request's README view
 
 ## Workflow follow-up
 
