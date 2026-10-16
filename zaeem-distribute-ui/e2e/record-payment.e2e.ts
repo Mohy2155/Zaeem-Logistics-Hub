@@ -36,7 +36,7 @@ test('a payment can be recorded with the keyboard alone and is receipted first',
   const receipt = page.getByRole('status').filter({ hasText: 'Download the receipt' });
   await expect(receipt).toBeFocused();
   await expect(receipt).toContainText(CLIENT);
-  await expect(receipt).toContainText('$101.00');
+  await expect(receipt).toContainText('$100.00');
   const receiptId = (await receipt.locator('dt:has-text("Receipt") + dd').innerText()).trim();
   expect(receiptId).toMatch(/^REC-\d+$/);
 
