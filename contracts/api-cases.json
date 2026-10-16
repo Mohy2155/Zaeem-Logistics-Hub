@@ -1,0 +1,428 @@
+{
+  "$comment": "Contract cases run against the real API (dotnet test) and the demo mock (ng test). The API is the source of truth. Format and intentional differences: contracts/README.md",
+  "cases": [
+    {
+      "name": "clients: active clients as a plain list with balance, discount and lifetime billed",
+      "given": {
+        "clients": [
+          { "id": 1, "name": "Build-It Corp", "balance": 12500, "discount": 10 },
+          { "id": 2, "name": "Dormant Haulage", "balance": 50, "discount": 5, "active": false }
+        ],
+        "rentals": [
+          { "id": 101, "client": "Build-It Corp", "plate": "DX-7728", "start": "2030-11-01", "end": "2030-11-05", "total": 2835 },
+          { "id": 102, "client": "Build-It Corp", "plate": "OLD-1", "start": "2030-02-01", "end": "2030-02-03", "total": 999, "status": "Cancelled" }
+        ]
+      },
+      "request": { "method": "GET", "path": "/api/companies" },
+      "expect": {
+        "status": 200,
+        "body": [
+          { "companyId": 1, "companyName": "Build-It Corp", "outstandingBalance": 12500, "defaultDiscount": 10, "totalBilledToDate": 2835 }
+        ]
+      }
+    },
+    {
+      "name": "rentals: every rental, cancelled ones included, with dates at midnight",
+      "given": {
+        "clients": [{ "id": 1, "name": "Build-It Corp", "balance": 0 }],
+        "rentals": [
+          { "id": 101, "client": "Build-It Corp", "plate": "DX-7728", "start": "2030-11-01", "end": "2030-11-05", "total": 2835 },
+          { "id": 102, "client": "Build-It Corp", "plate": "PL-4491", "start": "2030-11-02", "end": "2030-11-08", "total": 1904, "status": "Cancelled", "machineName": "Caterpillar Loader", "machineId": 102 }
+        ]
+      },
+      "request": { "method": "GET", "path": "/api/orders/rentals" },
+      "expect": {
+        "status": 200,
+        "body": [
+          { "rentalItemId": 101, "machineId": 101, "machineName": "Excavator X3000", "companyName": "Build-It Corp", "plateNumber": "DX-7728", "startDate": "2030-11-01T00:00:00", "endDate": "2030-11-05T00:00:00", "totalAmount": 2835, "status": "Active" },
+          { "rentalItemId": 102, "machineId": 102, "machineName": "Caterpillar Loader", "plateNumber": "PL-4491", "totalAmount": 1904, "status": "Cancelled" }
+        ]
+      }
+    },
+    {
+      "name": "order: bills the line totals rounded to cents and books every line",
+      "given": { "clients": [{ "id": 1, "name": "Build-It Corp", "balance": 1000 }] },
+      "request": {
+        "method": "POST",
+        "path": "/api/orders/place-bulk-order",
+        "body": {
+          "companyId": 1,
+          "items": [
+            { "machineId": 101, "machineName": "Excavator X3000", "plateNumber": " fs-101 ", "startDate": "2030-11-01", "endDate": "2030-11-03", "dailyRate": 450, "discount": 10, "taxPercent": 5, "taxType": "VAT", "lineTotal": 1350.004 },
+            { "machineId": 103, "machineName": "Tower Crane T1", "plateNumber": "FS-102", "startDate": "2030-11-02", "endDate": "2030-11-04", "dailyRate": 250, "discount": 0, "taxPercent": 0, "taxType": "VAT", "lineTotal": 500 }
+          ]
+        }
+      },
+      "expect": {
+        "status": 200,
+        "body": { "orderId": { "$matches": "^\\d+$" }, "result": "SUCCESS", "amountBilled": 1850, "outstandingBalance": 2850 },
+        "balances": { "Build-It Corp": 2850 },
+        "rentalStatuses": { "FS-101": "Active", "FS-102": "Active" },
+        "rentalsAfter": [
+          { "machineId": 101, "machineName": "Excavator X3000", "companyName": "Build-It Corp", "plateNumber": "FS-101", "startDate": "2030-11-01T00:00:00", "endDate": "2030-11-03T00:00:00", "dailyRate": 450, "discount": 10, "taxPercent": 5, "taxType": "VAT", "totalAmount": 1350, "status": "Active" },
+          { "machineId": 103, "machineName": "Tower Crane T1", "plateNumber": "FS-102", "startDate": "2030-11-02T00:00:00", "endDate": "2030-11-04T00:00:00", "totalAmount": 500, "status": "Active" }
+        ]
+      }
+    },
+    {
+      "name": "order: without items is refused",
+      "given": { "clients": [{ "id": 1, "name": "Build-It Corp", "balance": 1000 }] },
+      "request": { "method": "POST", "path": "/api/orders/place-bulk-order", "body": { "companyId": 1, "items": [] } },
+      "expect": { "status": 400, "message": "Order must contain at least one item.", "balances": { "Build-It Corp": 1000 }, "rentalCount": 0 }
+    },
+    {
+      "name": "order: an empty order is refused before the client is looked up",
+      "given": { "clients": [] },
+      "request": { "method": "POST", "path": "/api/orders/place-bulk-order", "body": { "companyId": 999, "items": [] } },
+      "expect": { "status": 400, "message": "Order must contain at least one item." }
+    },
+    {
+      "name": "order: a blank plate is refused naming the machine",
+      "given": { "clients": [{ "id": 1, "name": "Build-It Corp", "balance": 1000 }] },
+      "request": {
+        "method": "POST",
+        "path": "/api/orders/place-bulk-order",
+        "body": { "companyId": 1, "items": [{ "machineId": 101, "machineName": "Excavator X3000", "plateNumber": "   ", "startDate": "2030-11-01", "endDate": "2030-11-03", "dailyRate": 450, "discount": 0, "taxPercent": 0, "taxType": "VAT", "lineTotal": 900 }] }
+      },
+      "expect": { "status": 400, "message": "Plate number is required for Excavator X3000.", "balances": { "Build-It Corp": 1000 }, "rentalCount": 0 }
+    },
+    {
+      "name": "order: an unreadable date is refused",
+      "given": { "clients": [{ "id": 1, "name": "Build-It Corp", "balance": 1000 }] },
+      "request": {
+        "method": "POST",
+        "path": "/api/orders/place-bulk-order",
+        "body": { "companyId": 1, "items": [{ "machineId": 101, "machineName": "Excavator X3000", "plateNumber": "dx-1", "startDate": "not-a-date", "endDate": "2030-11-03", "dailyRate": 450, "discount": 0, "taxPercent": 0, "taxType": "VAT", "lineTotal": 900 }] }
+      },
+      "expect": { "status": 400, "message": "Invalid rental dates for plate DX-1.", "balances": { "Build-It Corp": 1000 }, "rentalCount": 0 }
+    },
+    {
+      "name": "order: a missing end date is refused",
+      "given": { "clients": [{ "id": 1, "name": "Build-It Corp", "balance": 1000 }] },
+      "request": {
+        "method": "POST",
+        "path": "/api/orders/place-bulk-order",
+        "body": { "companyId": 1, "items": [{ "machineId": 101, "machineName": "Excavator X3000", "plateNumber": "DX-1", "startDate": "2030-11-01", "endDate": "", "dailyRate": 450, "discount": 0, "taxPercent": 0, "taxType": "VAT", "lineTotal": 900 }] }
+      },
+      "expect": { "status": 400, "message": "Invalid rental dates for plate DX-1.", "rentalCount": 0 }
+    },
+    {
+      "name": "order: an end date equal to the start date is refused",
+      "given": { "clients": [{ "id": 1, "name": "Build-It Corp", "balance": 1000 }] },
+      "request": {
+        "method": "POST",
+        "path": "/api/orders/place-bulk-order",
+        "body": { "companyId": 1, "items": [{ "machineId": 101, "machineName": "Excavator X3000", "plateNumber": "DX-1", "startDate": "2030-11-10", "endDate": "2030-11-10", "dailyRate": 450, "discount": 0, "taxPercent": 0, "taxType": "VAT", "lineTotal": 900 }] }
+      },
+      "expect": { "status": 400, "message": "End date must be after start date for plate DX-1.", "balances": { "Build-It Corp": 1000 }, "rentalCount": 0 }
+    },
+    {
+      "name": "order: an end date before the start date is refused",
+      "given": { "clients": [{ "id": 1, "name": "Build-It Corp", "balance": 1000 }] },
+      "request": {
+        "method": "POST",
+        "path": "/api/orders/place-bulk-order",
+        "body": { "companyId": 1, "items": [{ "machineId": 101, "machineName": "Excavator X3000", "plateNumber": "DX-1", "startDate": "2030-11-10", "endDate": "2030-11-09", "dailyRate": 450, "discount": 0, "taxPercent": 0, "taxType": "VAT", "lineTotal": 900 }] }
+      },
+      "expect": { "status": 400, "message": "End date must be after start date for plate DX-1.", "rentalCount": 0 }
+    },
+    {
+      "name": "order: a negative line total is refused",
+      "given": { "clients": [{ "id": 1, "name": "Build-It Corp", "balance": 1000 }] },
+      "request": {
+        "method": "POST",
+        "path": "/api/orders/place-bulk-order",
+        "body": { "companyId": 1, "items": [{ "machineId": 101, "machineName": "Excavator X3000", "plateNumber": "DX-1", "startDate": "2030-11-01", "endDate": "2030-11-03", "dailyRate": 450, "discount": 0, "taxPercent": 0, "taxType": "VAT", "lineTotal": -1 }] }
+      },
+      "expect": { "status": 400, "message": "Invalid pricing for plate DX-1.", "balances": { "Build-It Corp": 1000 }, "rentalCount": 0 }
+    },
+    {
+      "name": "order: a negative discount is refused",
+      "given": { "clients": [{ "id": 1, "name": "Build-It Corp", "balance": 1000 }] },
+      "request": {
+        "method": "POST",
+        "path": "/api/orders/place-bulk-order",
+        "body": { "companyId": 1, "items": [{ "machineId": 101, "machineName": "Excavator X3000", "plateNumber": "DX-1", "startDate": "2030-11-01", "endDate": "2030-11-03", "dailyRate": 450, "discount": -1, "taxPercent": 0, "taxType": "VAT", "lineTotal": 900 }] }
+      },
+      "expect": { "status": 400, "message": "Invalid pricing for plate DX-1.", "rentalCount": 0 }
+    },
+    {
+      "name": "order: a discount over 100% is refused",
+      "given": { "clients": [{ "id": 1, "name": "Build-It Corp", "balance": 1000 }] },
+      "request": {
+        "method": "POST",
+        "path": "/api/orders/place-bulk-order",
+        "body": { "companyId": 1, "items": [{ "machineId": 101, "machineName": "Excavator X3000", "plateNumber": "DX-1", "startDate": "2030-11-01", "endDate": "2030-11-03", "dailyRate": 450, "discount": 100.01, "taxPercent": 0, "taxType": "VAT", "lineTotal": 900 }] }
+      },
+      "expect": { "status": 400, "message": "Invalid pricing for plate DX-1.", "rentalCount": 0 }
+    },
+    {
+      "name": "order: a negative tax rate is refused",
+      "given": { "clients": [{ "id": 1, "name": "Build-It Corp", "balance": 1000 }] },
+      "request": {
+        "method": "POST",
+        "path": "/api/orders/place-bulk-order",
+        "body": { "companyId": 1, "items": [{ "machineId": 101, "machineName": "Excavator X3000", "plateNumber": "DX-1", "startDate": "2030-11-01", "endDate": "2030-11-03", "dailyRate": 450, "discount": 0, "taxPercent": -5, "taxType": "VAT", "lineTotal": 900 }] }
+      },
+      "expect": { "status": 400, "message": "Invalid pricing for plate DX-1.", "rentalCount": 0 }
+    },
+    {
+      "name": "order: an invalid second line refuses the whole order",
+      "given": { "clients": [{ "id": 1, "name": "Build-It Corp", "balance": 1000 }] },
+      "request": {
+        "method": "POST",
+        "path": "/api/orders/place-bulk-order",
+        "body": {
+          "companyId": 1,
+          "items": [
+            { "machineId": 101, "machineName": "Excavator X3000", "plateNumber": "DX-1", "startDate": "2030-11-01", "endDate": "2030-11-03", "dailyRate": 450, "discount": 0, "taxPercent": 0, "taxType": "VAT", "lineTotal": 900 },
+            { "machineId": 101, "machineName": "Excavator X3000", "plateNumber": "DX-2", "startDate": "2030-11-05", "endDate": "2030-11-04", "dailyRate": 450, "discount": 0, "taxPercent": 0, "taxType": "VAT", "lineTotal": 900 }
+          ]
+        }
+      },
+      "expect": { "status": 400, "message": "End date must be after start date for plate DX-2.", "balances": { "Build-It Corp": 1000 }, "rentalCount": 0 }
+    },
+    {
+      "name": "order: line checks come before the client lookup",
+      "given": { "clients": [] },
+      "request": {
+        "method": "POST",
+        "path": "/api/orders/place-bulk-order",
+        "body": { "companyId": 999, "items": [{ "machineId": 101, "machineName": "Excavator X3000", "plateNumber": "DX-1", "startDate": "2030-11-05", "endDate": "2030-11-04", "dailyRate": 450, "discount": 0, "taxPercent": 0, "taxType": "VAT", "lineTotal": 900 }] }
+      },
+      "expect": { "status": 400, "message": "End date must be after start date for plate DX-1." }
+    },
+    {
+      "name": "order: an unknown client is not found",
+      "given": { "clients": [{ "id": 1, "name": "Build-It Corp", "balance": 1000 }] },
+      "request": {
+        "method": "POST",
+        "path": "/api/orders/place-bulk-order",
+        "body": { "companyId": 999, "items": [{ "machineId": 101, "machineName": "Excavator X3000", "plateNumber": "DX-1", "startDate": "2030-11-01", "endDate": "2030-11-03", "dailyRate": 450, "discount": 0, "taxPercent": 0, "taxType": "VAT", "lineTotal": 900 }] }
+      },
+      "expect": { "status": 404, "message": "Company not found.", "balances": { "Build-It Corp": 1000 }, "rentalCount": 0 }
+    },
+    {
+      "name": "booking: starting on another booking's return day conflicts, whatever the plate's case and spacing",
+      "given": {
+        "clients": [{ "id": 1, "name": "Build-It Corp", "balance": 1000 }],
+        "rentals": [{ "id": 101, "client": "Build-It Corp", "plate": "DX-7728", "start": "2030-11-01", "end": "2030-11-05", "total": 2250 }]
+      },
+      "request": {
+        "method": "POST",
+        "path": "/api/orders/place-bulk-order",
+        "body": { "companyId": 1, "items": [{ "machineId": 101, "machineName": "Excavator X3000", "plateNumber": " dx-7728 ", "startDate": "2030-11-05", "endDate": "2030-11-08", "dailyRate": 450, "discount": 0, "taxPercent": 0, "taxType": "VAT", "lineTotal": 1350 }] }
+      },
+      "expect": {
+        "status": 409,
+        "message": "Scheduling conflict: plate DX-7728 is already booked during 2030-11-05 to 2030-11-08.",
+        "balances": { "Build-It Corp": 1000 },
+        "rentalCount": 1
+      }
+    },
+    {
+      "name": "booking: ending on another booking's start day conflicts",
+      "given": {
+        "clients": [{ "id": 1, "name": "Build-It Corp", "balance": 1000 }],
+        "rentals": [{ "id": 101, "client": "Build-It Corp", "plate": "DX-7728", "start": "2030-11-01", "end": "2030-11-05", "total": 2250 }]
+      },
+      "request": {
+        "method": "POST",
+        "path": "/api/orders/place-bulk-order",
+        "body": { "companyId": 1, "items": [{ "machineId": 101, "machineName": "Excavator X3000", "plateNumber": "DX-7728", "startDate": "2030-10-28", "endDate": "2030-11-01", "dailyRate": 450, "discount": 0, "taxPercent": 0, "taxType": "VAT", "lineTotal": 1800 }] }
+      },
+      "expect": { "status": 409, "messageStartsWith": "Scheduling conflict: plate DX-7728", "rentalCount": 1 }
+    },
+    {
+      "name": "booking: back-to-back bookings of one plate are allowed",
+      "given": {
+        "clients": [{ "id": 1, "name": "Build-It Corp", "balance": 1000 }],
+        "rentals": [{ "id": 101, "client": "Build-It Corp", "plate": "DX-7728", "start": "2030-11-01", "end": "2030-11-05", "total": 2250 }]
+      },
+      "request": {
+        "method": "POST",
+        "path": "/api/orders/place-bulk-order",
+        "body": { "companyId": 1, "items": [{ "machineId": 101, "machineName": "Excavator X3000", "plateNumber": "DX-7728", "startDate": "2030-11-06", "endDate": "2030-11-08", "dailyRate": 450, "discount": 0, "taxPercent": 0, "taxType": "VAT", "lineTotal": 900 }] }
+      },
+      "expect": { "status": 200, "body": { "result": "SUCCESS", "amountBilled": 900, "outstandingBalance": 1900 }, "balances": { "Build-It Corp": 1900 }, "rentalCount": 2 }
+    },
+    {
+      "name": "booking: overlapping lines within one order conflict and nothing is stored",
+      "given": { "clients": [{ "id": 1, "name": "Build-It Corp", "balance": 1000 }] },
+      "request": {
+        "method": "POST",
+        "path": "/api/orders/place-bulk-order",
+        "body": {
+          "companyId": 1,
+          "items": [
+            { "machineId": 101, "machineName": "Excavator X3000", "plateNumber": "FS-101", "startDate": "2030-11-01", "endDate": "2030-11-03", "dailyRate": 450, "discount": 0, "taxPercent": 0, "taxType": "VAT", "lineTotal": 900 },
+            { "machineId": 101, "machineName": "Excavator X3000", "plateNumber": "fs-101", "startDate": "2030-11-03", "endDate": "2030-11-04", "dailyRate": 450, "discount": 0, "taxPercent": 0, "taxType": "VAT", "lineTotal": 450 }
+          ]
+        }
+      },
+      "expect": {
+        "status": 409,
+        "message": "Scheduling conflict: plate FS-101 is already booked during 2030-11-03 to 2030-11-04.",
+        "balances": { "Build-It Corp": 1000 },
+        "rentalCount": 0
+      }
+    },
+    {
+      "name": "booking: a cancelled booking frees its plate",
+      "given": {
+        "clients": [{ "id": 1, "name": "Build-It Corp", "balance": 1000 }],
+        "rentals": [{ "id": 101, "client": "Build-It Corp", "plate": "DX-7728", "start": "2030-11-01", "end": "2030-11-05", "total": 2250, "status": "Cancelled" }]
+      },
+      "request": {
+        "method": "POST",
+        "path": "/api/orders/place-bulk-order",
+        "body": { "companyId": 1, "items": [{ "machineId": 101, "machineName": "Excavator X3000", "plateNumber": "DX-7728", "startDate": "2030-11-01", "endDate": "2030-11-05", "dailyRate": 450, "discount": 0, "taxPercent": 0, "taxType": "VAT", "lineTotal": 1800 }] }
+      },
+      "expect": { "status": 200, "body": { "result": "SUCCESS", "amountBilled": 1800 }, "balances": { "Build-It Corp": 2800 }, "rentalStatuses": { "DX-7728": ["Cancelled", "Active"] } }
+    },
+    {
+      "name": "payment: a partial payment reduces the balance by exactly its amount and issues a receipt",
+      "given": { "clients": [{ "id": 1, "name": "Build-It Corp", "balance": 12500 }] },
+      "request": { "method": "POST", "path": "/api/payments/record", "body": { "companyId": 1, "amount": 100.5 } },
+      "expect": { "status": 200, "body": { "result": "SUCCESS", "receiptId": { "$matches": "^REC-\\d+$" } }, "balances": { "Build-It Corp": 12399.5 }, "receiptCount": 1 }
+    },
+    {
+      "name": "payment: paying the exact balance settles it",
+      "given": { "clients": [{ "id": 1, "name": "Build-It Corp", "balance": 12500 }] },
+      "request": { "method": "POST", "path": "/api/payments/record", "body": { "companyId": 1, "amount": 12500 } },
+      "expect": { "status": 200, "body": { "result": "SUCCESS" }, "balances": { "Build-It Corp": 0 }, "receiptCount": 1 }
+    },
+    {
+      "name": "payment: a payment one cent over the balance is refused, stating the balance",
+      "given": { "clients": [{ "id": 1, "name": "Build-It Corp", "balance": 12500 }] },
+      "request": { "method": "POST", "path": "/api/payments/record", "body": { "companyId": 1, "amount": 12500.01 } },
+      "expect": { "status": 400, "messageStartsWith": "Payment exceeds the outstanding balance of 12500", "balances": { "Build-It Corp": 12500 }, "receiptCount": 0 }
+    },
+    {
+      "name": "payment: a zero payment is refused",
+      "given": { "clients": [{ "id": 1, "name": "Build-It Corp", "balance": 12500 }] },
+      "request": { "method": "POST", "path": "/api/payments/record", "body": { "companyId": 1, "amount": 0 } },
+      "expect": { "status": 400, "message": "Payment amount must be greater than zero.", "balances": { "Build-It Corp": 12500 }, "receiptCount": 0 }
+    },
+    {
+      "name": "payment: a negative payment is refused",
+      "given": { "clients": [{ "id": 1, "name": "Build-It Corp", "balance": 12500 }] },
+      "request": { "method": "POST", "path": "/api/payments/record", "body": { "companyId": 1, "amount": -25 } },
+      "expect": { "status": 400, "message": "Payment amount must be greater than zero.", "balances": { "Build-It Corp": 12500 }, "receiptCount": 0 }
+    },
+    {
+      "name": "payment: the amount is checked before the client is looked up",
+      "given": { "clients": [] },
+      "request": { "method": "POST", "path": "/api/payments/record", "body": { "companyId": 999, "amount": 0 } },
+      "expect": { "status": 400, "message": "Payment amount must be greater than zero." }
+    },
+    {
+      "name": "payment: an unknown client is not found",
+      "given": { "clients": [{ "id": 1, "name": "Build-It Corp", "balance": 12500 }] },
+      "request": { "method": "POST", "path": "/api/payments/record", "body": { "companyId": 999, "amount": 10 } },
+      "expect": { "status": 404, "message": "Company not found.", "balances": { "Build-It Corp": 12500 }, "receiptCount": 0 }
+    },
+    {
+      "name": "receipts: listed newest first with the client's name",
+      "given": {
+        "clients": [
+          { "id": 1, "name": "Build-It Corp", "balance": 0 },
+          { "id": 2, "name": "Swift Logistics", "balance": 0 }
+        ],
+        "receipts": [
+          { "id": 1, "clientId": 1, "amount": 300, "paidAt": "2030-01-10T09:00:00" },
+          { "id": 2, "clientId": 2, "amount": 500, "paidAt": "2030-03-10T09:00:00" },
+          { "id": 3, "clientId": 1, "amount": 75.25, "paidAt": "2030-02-10T09:00:00" }
+        ]
+      },
+      "request": { "method": "GET", "path": "/api/payments/receipts" },
+      "expect": {
+        "status": 200,
+        "body": [
+          { "receiptId": "REC-2", "companyId": 2, "companyName": "Swift Logistics", "amount": 500 },
+          { "receiptId": "REC-3", "companyId": 1, "companyName": "Build-It Corp", "amount": 75.25 },
+          { "receiptId": "REC-1", "companyId": 1, "companyName": "Build-It Corp", "amount": 300 }
+        ]
+      }
+    },
+    {
+      "name": "cancel rental: reverses its charge, which can leave the client in credit",
+      "given": {
+        "clients": [{ "id": 3, "name": "Mega Structures", "balance": 0 }],
+        "rentals": [{ "id": 501, "client": "Mega Structures", "plate": "AP-501", "start": "2030-11-01", "end": "2030-11-03", "total": 606.5 }]
+      },
+      "request": { "method": "DELETE", "path": "/api/orders/rentals/501" },
+      "expect": {
+        "status": 200,
+        "body": { "message": "Rental item cancelled successfully", "outstandingBalance": -606.5 },
+        "balances": { "Mega Structures": -606.5 },
+        "rentalStatuses": { "AP-501": "Cancelled" }
+      }
+    },
+    {
+      "name": "cancel rental: a cancelled rental cannot be cancelled again",
+      "given": {
+        "clients": [{ "id": 3, "name": "Mega Structures", "balance": 600 }],
+        "rentals": [{ "id": 501, "client": "Mega Structures", "plate": "AP-501", "start": "2030-11-01", "end": "2030-11-03", "total": 400, "status": "Cancelled" }]
+      },
+      "request": { "method": "DELETE", "path": "/api/orders/rentals/501" },
+      "expect": { "status": 400, "message": "Rental item is already cancelled", "balances": { "Mega Structures": 600 }, "rentalStatuses": { "AP-501": "Cancelled" } }
+    },
+    {
+      "name": "cancel rental: an unknown rental is not found",
+      "given": { "clients": [{ "id": 3, "name": "Mega Structures", "balance": 600 }] },
+      "request": { "method": "DELETE", "path": "/api/orders/rentals/424242" },
+      "expect": { "status": 404, "message": "Rental item not found", "balances": { "Mega Structures": 600 } }
+    },
+    {
+      "name": "cancel order: reverses only what was not already reversed and cancels its rentals",
+      "given": {
+        "clients": [{ "id": 1, "name": "Build-It Corp", "balance": 500 }],
+        "orders": [{ "id": 31, "clientId": 1, "total": 1000 }],
+        "rentals": [
+          { "id": 501, "client": "Build-It Corp", "plate": "FS-101", "start": "2030-11-01", "end": "2030-11-03", "total": 500, "status": "Cancelled", "orderId": 31 },
+          { "id": 502, "client": "Build-It Corp", "plate": "FS-102", "start": "2030-11-01", "end": "2030-11-03", "total": 500, "orderId": 31 }
+        ]
+      },
+      "request": { "method": "POST", "path": "/api/orders/cancel/31" },
+      "expect": {
+        "status": 200,
+        "body": { "message": "Order cancelled successfully", "outstandingBalance": 0 },
+        "balances": { "Build-It Corp": 0 },
+        "rentalStatuses": { "FS-101": "Cancelled", "FS-102": "Cancelled" }
+      }
+    },
+    {
+      "name": "cancel order: rentals of other orders are left alone",
+      "given": {
+        "clients": [{ "id": 1, "name": "Build-It Corp", "balance": 1500 }],
+        "orders": [
+          { "id": 31, "clientId": 1, "total": 900 },
+          { "id": 32, "clientId": 1, "total": 600 }
+        ],
+        "rentals": [
+          { "id": 501, "client": "Build-It Corp", "plate": "FS-101", "start": "2030-11-01", "end": "2030-11-03", "total": 900, "orderId": 31 },
+          { "id": 502, "client": "Build-It Corp", "plate": "FS-102", "start": "2030-11-01", "end": "2030-11-03", "total": 600, "orderId": 32 }
+        ]
+      },
+      "request": { "method": "POST", "path": "/api/orders/cancel/31" },
+      "expect": { "status": 200, "balances": { "Build-It Corp": 600 }, "rentalStatuses": { "FS-101": "Cancelled", "FS-102": "Active" } }
+    },
+    {
+      "name": "cancel order: a cancelled order cannot be cancelled again",
+      "given": {
+        "clients": [{ "id": 1, "name": "Build-It Corp", "balance": 0 }],
+        "orders": [{ "id": 31, "clientId": 1, "total": 750, "status": "Cancelled" }],
+        "rentals": [{ "id": 501, "client": "Build-It Corp", "plate": "FS-101", "start": "2030-11-01", "end": "2030-11-03", "total": 750, "status": "Cancelled", "orderId": 31 }]
+      },
+      "request": { "method": "POST", "path": "/api/orders/cancel/31" },
+      "expect": { "status": 400, "message": "Order is already cancelled", "balances": { "Build-It Corp": 0 } }
+    },
+    {
+      "name": "cancel order: an unknown order is not found",
+      "given": { "clients": [{ "id": 1, "name": "Build-It Corp", "balance": 100 }] },
+      "request": { "method": "POST", "path": "/api/orders/cancel/424242" },
+      "expect": { "status": 404, "message": "Order not found", "balances": { "Build-It Corp": 100 } }
+    }
+  ]
+}

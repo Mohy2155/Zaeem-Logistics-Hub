@@ -16,6 +16,7 @@ The frontend client interface is compiled and deployed live. You can interact wi
 Zaeem-Logistics-Hub/
 ├── README.md                 <-- System Overview & Developer Guide
 ├── Project Methodology       <-- Functional Specifications Document
+├── contracts/                <-- API contract cases, run against the API and the demo mock
 ├── ZaeemDistributeSystem/    <-- Backend Server Application (.NET 9)
 │   ├── ZaeemDistribute.Api/  <-- Controllers, Models, DTOs and EF Core Migrations
 │   └── ZaeemDistribute.Api.Tests/  <-- xUnit tests for the API's business rules
