@@ -10,12 +10,12 @@
 
 ## 2. API business-rule tests
 
-- [ ] 2.1 Write the order validation tests from `specs/api-test-suite` (no items, blank plate, bad dates, end not after start, negative total or tax, discount out of range, unknown client), each asserting that nothing was stored; verify `dotnet test` passes
-- [ ] 2.2 Write the double-booking tests (shared return day with case and whitespace differences, back-to-back, overlap inside one order, cancelled booking frees the plate); verify they pass, and that changing the inclusive check to exclusive makes the shared-return-day test fail (then revert)
-- [ ] 2.3 Write the billing and client-list tests (rounding of `1350.004`, plate in capitals, Active status, amount billed and new balance in the response, lifetime billed excluding cancelled rentals, inactive client hidden); verify they pass
-- [ ] 2.4 Write the payment tests (zero, negative, overpayment by one cent, unknown client, exact payment to $0.00, receipt first in history with the client name); verify they pass
-- [ ] 2.5 Write the cancellation tests (rental cancelled into credit, order cancelled after one line was cancelled, double cancel of each, unknown ids); verify they pass
-- [ ] 2.6 Document the backend test command and `ZAEEM_TEST_SQL` in the root README; verify the documented command runs as written from a fresh terminal
+- [x] 2.1 Write the order validation tests from `specs/api-test-suite` (no items, blank plate, bad dates, end not after start, negative total or tax, discount out of range, unknown client), each asserting that nothing was stored; verify `dotnet test` passes
+- [x] 2.2 Write the double-booking tests (shared return day with case and whitespace differences, back-to-back, overlap inside one order, cancelled booking frees the plate); verify they pass, and that changing the inclusive check to exclusive makes the shared-return-day test fail (then revert)
+- [x] 2.3 Write the billing and client-list tests (rounding of `1350.004`, plate in capitals, Active status, amount billed and new balance in the response, lifetime billed excluding cancelled rentals, inactive client hidden); verify they pass
+- [x] 2.4 Write the payment tests (zero, negative, overpayment by one cent, unknown client, exact payment to $0.00, receipt first in history with the client name); verify they pass
+- [x] 2.5 Write the cancellation tests (rental cancelled into credit, order cancelled after one line was cancelled, double cancel of each, unknown ids); verify they pass
+- [x] 2.6 Document the backend test command and `ZAEEM_TEST_SQL` in the root README; verify the documented command runs as written from a fresh terminal
 
 ## 3. Contract cases and demo mock parity
 

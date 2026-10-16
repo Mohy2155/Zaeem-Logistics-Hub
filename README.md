@@ -17,7 +17,8 @@ Zaeem-Logistics-Hub/
 ├── README.md                 <-- System Overview & Developer Guide
 ├── Project Methodology       <-- Functional Specifications Document
 ├── ZaeemDistributeSystem/    <-- Backend Server Application (.NET 9)
-│   └── ZaeemDistribute.Api/  <-- Controllers, Models, DTOs and EF Core Migrations
+│   ├── ZaeemDistribute.Api/  <-- Controllers, Models, DTOs and EF Core Migrations
+│   └── ZaeemDistribute.Api.Tests/  <-- xUnit tests for the API's business rules
 └── zaeem-distribute-ui/      <-- Frontend Client Dashboard (Angular)
     ├── src/                  <-- Reactive View Layers, Forms, and State Routers
     ├── angular.json          <-- Workspace Build Pipelines
@@ -121,6 +122,22 @@ npm install
 npm start
 ```
 Open http://localhost:4200.
+
+### 3. Run the API tests
+```bash
+cd ZaeemDistributeSystem
+dotnet test
+```
+The tests host the API in memory and call it over HTTP. They cover order validation, double-booking, billing, payments and cancellations. Each run creates its own `ZaeemDistribute_Test_<random>` database on your SQL Server and drops it at the end, so the `ZaeemDistribute` database is never read or written. The tests refuse to reset any database whose name lacks `_Test_`.
+
+They use the same local SQL Server as the API (`localhost`, Windows authentication). For another server, set `ZAEEM_TEST_SQL` to a connection string without a database name:
+```bash
+# SQL Server Express (bash; in PowerShell use $env:ZAEEM_TEST_SQL = "...")
+ZAEEM_TEST_SQL="Server=localhost\SQLEXPRESS;Trusted_Connection=True;TrustServerCertificate=True;" dotnet test
+# SQL login, e.g. a Docker container
+ZAEEM_TEST_SQL="Server=localhost,1433;User Id=sa;Password=<password>;TrustServerCertificate=True;" dotnet test
+```
+The API's startup seed data can be switched off with `--Seed:Enabled=false`; the tests do this so each test starts from an empty database.
 
 ---
 
