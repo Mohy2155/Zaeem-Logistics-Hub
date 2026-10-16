@@ -91,6 +91,9 @@
             },
             "development": {
               "buildTarget": "zaeem-distribute-ui:build:development"
+            },
+            "demo": {
+              "buildTarget": "zaeem-distribute-ui:build:prod-demo"
             }
           },
           "defaultConfiguration": "development"

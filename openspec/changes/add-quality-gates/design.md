@@ -100,7 +100,7 @@ Found by the contract cases during implementation, and fixed the same way:
 ### D7. Playwright runs against `ng serve`, with the target chosen by an environment variable
 - **Location:** `zaeem-distribute-ui/playwright.config.ts`, tests in `zaeem-distribute-ui/e2e/`, Chromium only.
 - **Demo mode (the default):**
-  - A new `demo` serve configuration (build target `prod-demo`, base href `/`) on port 4300, started by Playwright's `webServer`.
+  - A new `demo` serve configuration (build target `prod-demo`) on port 4300, started by Playwright's `webServer`. It keeps the build's GitHub Pages base path (`/Zaeem-Logistics-Hub/`), so the tests exercise the app exactly as deployed. The dev server cannot override the base href anyway.
   - Every test gets a new browser context, so `localStorage` is empty and the mock re-seeds.
 - **Full stack (`E2E_TARGET=fullstack`):**
   - Base URL `http://localhost:4200`, with `webServer` running `ng serve` (reusing one already running).

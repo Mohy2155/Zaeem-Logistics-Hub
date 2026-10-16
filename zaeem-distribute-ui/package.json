@@ -9,6 +9,7 @@
     "build:demo": "ng build --configuration=prod-demo --base-href=/Zaeem-Logistics-Hub/",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
+    "e2e": "playwright test",
     "check:contrast": "node scripts/contrast-table.mjs"
   },
   "private": true,
@@ -33,6 +34,7 @@
     "@angular/build": "^21.2.11",
     "@angular/cli": "^21.2.11",
     "@angular/compiler-cli": "^21.2.0",
+    "@playwright/test": "^1.64.1",
     "@types/node": "^25.9.9",
     "angular-cli-ghpages": "^3.1.0",
     "jsdom": "^28.0.0",

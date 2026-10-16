@@ -9,6 +9,7 @@ The Angular 21 frontend for Zaeem Logistics Hub. It talks to the .NET API in `..
 | `npm install` | Install dependencies (Node.js 20+). |
 | `npm start` | Dev server on http://localhost:4200 against the real API at http://localhost:5234. |
 | `npm test` | Unit tests with Vitest (`ng test`), including the design-system guard tests and the API contract cases run against the demo mock. |
+| `npm run e2e` | End-to-end tests with Playwright against the demo build (see [End-to-end tests](#end-to-end-tests)). |
 | `npm run build` | Production build into `dist/zaeem-distribute-ui/` (expects the API). |
 | `npm run build:demo` | Demo build (`prod-demo`: mock API, demo banner) with the GitHub Pages base path. |
 | `npm run deploy` | Demo build published to the `gh-pages` branch. |
@@ -64,3 +65,50 @@ When a case fails here but passes against the API, fix `mock-api.ts` and leave t
 3. Run `npm test` and update the mock until it passes too.
 
 [`../contracts/README.md`](../contracts/README.md) explains the case format and lists the few intentional differences between the API and the mock, such as receipt numbering and payment timestamp zones.
+
+## End-to-end tests
+
+Playwright tests in `e2e/` (`*.e2e.ts`) drive the app in Chromium the way a user does:
+
+- placing an order and finding it on the confirmation, the Fleet Schedule and the Client Ledger;
+- being stopped from double-booking a plate;
+- recording a payment with the keyboard alone;
+- being stopped from paying more than the balance due.
+
+Each run uses new plate numbers, books a few days from today, and checks balances as before/after differences. Runs never collide with earlier ones or with seed data.
+
+Install the browser once:
+
+```bash
+npx playwright install chromium
+```
+
+### Demo mode (default)
+
+```bash
+npm run e2e
+```
+
+This starts the demo build itself (`ng serve --configuration demo`, http://localhost:4300/Zaeem-Logistics-Hub/) and needs no API or SQL Server. Each test starts from fresh browser storage, so the demo data re-seeds every time. CI runs this mode, with two retries and a trace recorded on the first retry.
+
+### Full-stack mode
+
+The same tests run against the dev server (port 4200) and the real API. They place real orders and record real payments, so **point the API at a scratch database**, never your `ZaeemDistribute` one:
+
+```bash
+# Terminal 1: the API on a scratch database (created and seeded on startup)
+cd ZaeemDistributeSystem
+dotnet run --project ZaeemDistribute.Api -- --ConnectionStrings:DefaultConnection="Server=localhost;Database=ZaeemDistribute_E2E;Trusted_Connection=True;TrustServerCertificate=True;"
+
+# Terminal 2: the tests
+cd zaeem-distribute-ui
+E2E_TARGET=fullstack E2E_ALLOW_FULLSTACK=1 npm run e2e
+```
+
+In PowerShell, set the variables with `$env:E2E_TARGET = "fullstack"; $env:E2E_ALLOW_FULLSTACK = "1"` before `npm run e2e`.
+
+`E2E_ALLOW_FULLSTACK=1` is the guard: with `E2E_TARGET=fullstack` alone the run refuses to start. The tests can run any number of times against the same scratch database. When you're done, stop the API and drop the database:
+
+```bash
+sqlcmd -S localhost -E -C -Q "ALTER DATABASE [ZaeemDistribute_E2E] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE [ZaeemDistribute_E2E]"
+```
