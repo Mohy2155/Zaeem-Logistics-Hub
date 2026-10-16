@@ -43,7 +43,10 @@ using (var scope = app.Services.CreateScope())
         // Creates the database if it doesn't exist and applies any pending migrations
         context.Database.Migrate();
 
-        if (!context.Companies.Any())
+        // Seed:Enabled=false skips the sample data (the API tests bring their own); migrations above always run
+        var seed = app.Configuration.GetValue("Seed:Enabled", true);
+
+        if (seed && !context.Companies.Any())
         {
             var companies = new List<Company>
             {
@@ -55,7 +58,7 @@ using (var scope = app.Services.CreateScope())
             context.SaveChanges();
         }
 
-        if (!context.Products.Any())
+        if (seed && !context.Products.Any())
         {
             var products = new List<Product>
             {
@@ -69,7 +72,7 @@ using (var scope = app.Services.CreateScope())
             context.SaveChanges();
         }
 
-        if (!context.RentalItems.Any())
+        if (seed && !context.RentalItems.Any())
         {
             var rentals = new List<RentalItem>
             {
@@ -114,3 +117,6 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.Run();
+
+// Lets the API test project host this app in memory (WebApplicationFactory<Program>)
+public partial class Program;
