@@ -1,0 +1,105 @@
+# Checks every push to main and every pull request into it. Three independent jobs, so each reports its own result.
+# Nothing here deploys: publishing the GitHub Pages demo stays a manual `npm run deploy`.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NG_CLI_ANALYTICS: 'false'
+
+jobs:
+  frontend:
+    name: frontend
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: zaeem-distribute-ui
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: zaeem-distribute-ui/package-lock.json
+      - run: npm ci
+      - name: Unit tests (including the API contract cases against the demo mock)
+        run: npx ng test --watch=false
+      - name: Production build
+        run: npm run build
+      - name: Demo build
+        run: npm run build:demo
+      - name: Contrast check (WCAG AA)
+        run: npm run check:contrast
+
+  backend:
+    name: backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      # Exists only for this job, so the SA password below is not a secret.
+      sqlserver:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: 'Y'
+          MSSQL_SA_PASSWORD: ZaeemCi_Test_2026
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P ZaeemCi_Test_2026 -C -Q 'SELECT 1'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 12
+          --health-start-period 20s
+    env:
+      ZAEEM_TEST_SQL: Server=localhost,1433;User Id=sa;Password=ZaeemCi_Test_2026;TrustServerCertificate=True;
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+      - name: Build
+        run: dotnet build ZaeemDistributeSystem/ZaeemDistributeSystem.sln
+      - name: API tests (business rules and contract cases, on a throwaway database)
+        run: dotnet test ZaeemDistributeSystem/ZaeemDistributeSystem.sln --no-build --logger "console;verbosity=normal"
+
+  e2e:
+    name: e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: zaeem-distribute-ui
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: zaeem-distribute-ui/package-lock.json
+      - run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: End-to-end tests (demo build)
+        run: npx playwright test
+      - name: Keep traces and screenshots of the failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: |
+            zaeem-distribute-ui/playwright-report/
+            zaeem-distribute-ui/test-results/
+          retention-days: 14
