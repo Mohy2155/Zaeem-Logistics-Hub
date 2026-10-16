@@ -56,11 +56,14 @@ export class SchedulerComponent {
     return `${formatDate(days[0], 'MMM d', 'en-US')} – ${formatDate(days[days.length - 1], 'MMM d, y', 'en-US')}`;
   });
 
-  /** null until the first successful load, so the count isn't shown for data we don't have. */
   private readonly rentals = signal<ActiveRental[] | null>(null);
   protected readonly rows = computed(() => buildRows(this.rentals() ?? [], this.days(), this.today));
-  protected readonly bookingsInView = computed(() =>
-    this.rentals() === null ? null : this.rows().reduce((n, row) => n + row.bars.length, 0));
+  /** Booking count for the card header; blank until data has loaded, so no count is shown for data we don't have. */
+  protected readonly rangeMeta = computed(() => {
+    if (this.rentals() === null) return '';
+    const count = this.rows().reduce((n, row) => n + row.bars.length, 0);
+    return count === 0 ? 'No bookings in this period' : `${count} ${count === 1 ? 'booking' : 'bookings'} in view`;
+  });
 
   protected readonly data = loadState(() => this.companyService.loadRentals().pipe(tap(r => this.rentals.set(r))), () => false);
 

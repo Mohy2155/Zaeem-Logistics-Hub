@@ -1,21 +1,12 @@
 <ui-page-header title="Fleet Schedule" description="Who has which machine, and when. Overlapping bookings of a type get their own lane." />
 
-<ui-card flush>
-  <div class="toolbar">
-    <div class="range">
-      <h2 class="range-label" aria-live="polite">{{ rangeLabel() }}</h2>
-      @if (bookingsInView(); as count) {
-        <p class="range-meta">{{ count }} {{ count === 1 ? 'booking' : 'bookings' }} in view</p>
-      } @else if (bookingsInView() === 0) {
-        <p class="range-meta">No bookings in this period</p>
-      }
-    </div>
-    <div class="nav">
-      <button ui-icon-button icon="chevron-left" label="Previous 14 days" (click)="move(-1)"></button>
-      <button ui-button size="sm" [disabled]="offset() === 0" (click)="move(0)">Today</button>
-      <button ui-icon-button icon="chevron-right" label="Next 14 days" (click)="move(1)"></button>
-    </div>
+<ui-card flush [heading]="rangeLabel()" [description]="rangeMeta()">
+  <div card-actions class="nav">
+    <button ui-icon-button icon="chevron-left" label="Previous 14 days" (click)="move(-1)"></button>
+    <button ui-button size="sm" [disabled]="offset() === 0" (click)="move(0)">Today</button>
+    <button ui-icon-button icon="chevron-right" label="Next 14 days" (click)="move(1)"></button>
   </div>
+  <p class="sr-only" aria-live="polite">Showing {{ rangeLabel() }}</p>
 
   <ui-async-view [state]="data.state$ | async" what="the schedule" skeleton="table" [skeletonCount]="5" (retry)="data.retry()">
     <ng-template uiReady>

@@ -63,9 +63,9 @@
 
 ## 9. Cleanup and guards
 
-- [ ] 9.1 Remove the legacy per-component styles (`glass-card`, `polished-card`, `btn-premium`, `premium-table`, `fadeIn`, and similar) and any unused `app.scss` rules; verify `ng build` reports no budget warnings beyond the current baseline
-- [ ] 9.2 Add guard tests to the vitest suite that fail on raw colour literals outside `src/styles/`, static `style="` attributes in templates, and emoji characters in templates; verify they pass and that they fail when a violation is introduced temporarily
-- [ ] 9.3 Update the root `README.md` (screens section, theme toggle, demo notice) and `zaeem-distribute-ui/README.md` (UI architecture and the `ui/` primitives); verify the documented commands run as written
+- [x] 9.1 Remove the legacy per-component styles (`glass-card`, `polished-card`, `btn-premium`, `premium-table`, `fadeIn`, and similar) and any unused `app.scss` rules; verify `ng build` reports no budget warnings beyond the current baseline
+- [x] 9.2 Add guard tests to the vitest suite that fail on raw colour literals outside `src/styles/`, static `style="` attributes in templates, and emoji characters in templates; verify they pass and that they fail when a violation is introduced temporarily
+- [x] 9.3 Update the root `README.md` (screens section, theme toggle, demo notice) and `zaeem-distribute-ui/README.md` (UI architecture and the `ui/` primitives); verify the documented commands run as written
 
 ## 10. Integration verification
 

@@ -51,3 +51,9 @@ Results of the manual and automated checks run while applying this change. Full-
 - Demo build: ledger and payments work against the mock API (payment REC-1003 took Swift Logistics from $85,000.00 to $80,000.00).
 - API stopped: both pages show "Couldn't load …" with Retry.
 - Shared table: in card mode each cell's content is wrapped once, so two-line cells (dates with times, machine with plate) stay together beside their label; this also tidied the dashboard's deployment cards.
+
+## Group 9 – Cleanup and guards
+- No legacy styles remain (`glass-card`, `polished-card`, `btn-premium`, `premium-table`, `premium-grid`, `glass-table`, `fadeIn`); `app.scss` holds only `:host { display: block }`.
+- `ng build`: no budget warnings (the schedule stylesheet was brought back under the 4 kB component budget by using the card header instead of a custom toolbar). The remaining warnings are the existing CommonJS notices from `canvg`/`core-js` (pulled in by jsPDF).
+- `style-guards.spec.ts` (7 tests): unit tests of the three checks plus a scan of `src/` outside `src/styles/`. All pass. With a temporary `<p style="color: #ff0000">🚀 …</p>` added to the dashboard template, all three source checks failed and named `dashboard.component.html:69`; the template was then restored.
+- READMEs: root README gained a Screens section, theme toggle and demo notice notes, and the `build:demo`/`npm test` commands; `zaeem-distribute-ui/README.md` replaced the CLI boilerplate with the commands, folder structure and conventions; `ui/README.md` points at the real guard file. Ran as written: `npm install`, `npm start` (serves on 4200), `npm test`, `npm run build`, `npm run build:demo`, `npm run check:contrast`. `npm run deploy` publishes and is left for after review.
