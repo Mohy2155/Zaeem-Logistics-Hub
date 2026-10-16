@@ -1,0 +1,79 @@
+@let c = check;
+<form class="order-form" (ngSubmit)="submit()" novalidate>
+  <div class="section" role="group" aria-labelledby="order-client">
+    <h3 class="section-title" id="order-client">Client</h3>
+    @if (locked()) {
+      <ui-form-field label="Bill to" hint="This order already has items. Clear the cart to change the client.">
+        <input uiControl type="text" readonly [value]="clientName()" />
+      </ui-form-field>
+    } @else {
+      <ui-form-field label="Bill to" required [error]="errorFor('client')">
+        <select #clientSelect uiControl name="clientId" [ngModel]="clientId()" (ngModelChange)="onClientChange($event)"
+                (blur)="touch('client')">
+          <option [ngValue]="0" disabled>Select a client…</option>
+          @for (company of companies(); track company.companyId) {
+            <option [ngValue]="company.companyId">{{ company.companyName }}</option>
+          }
+        </select>
+      </ui-form-field>
+    }
+  </div>
+
+  <div class="section" role="group" aria-labelledby="order-machinery">
+    <h3 class="section-title" id="order-machinery">Machinery &amp; period</h3>
+    <ui-form-field label="Machine type" required [error]="errorFor('machine')">
+      <select #machineSelect uiControl name="machineId" [(ngModel)]="draft.machineId" (blur)="touch('machine')">
+        <option [ngValue]="0" disabled>Choose a machine…</option>
+        @for (machine of machinery(); track machine.id) {
+          <option [ngValue]="machine.id">{{ machine.name }} · {{ machine.dailyRate | currency }}/day</option>
+        }
+      </select>
+    </ui-form-field>
+
+    <div class="pair">
+      <ui-form-field label="Start date" required [error]="errorFor('startDate')">
+        <input uiControl type="date" name="startDate" [min]="minDate" [(ngModel)]="draft.startDate" (blur)="touch('startDate')" />
+      </ui-form-field>
+      <ui-form-field label="End date" required hint="Billed per day from start to end." [error]="errorFor('endDate')">
+        <input uiControl type="date" name="endDate" [min]="draft.startDate || minDate" [(ngModel)]="draft.endDate"
+               (blur)="touch('endDate')" />
+      </ui-form-field>
+    </div>
+
+    <ui-form-field label="Plate number" required hint="The unit's plate, e.g. DX-7728. Saved in capitals." [error]="plateError">
+      <input uiControl type="text" name="plateNumber" autocomplete="off" spellcheck="false" [(ngModel)]="draft.plateNumber"
+             (blur)="touch('plate')" />
+    </ui-form-field>
+  </div>
+
+  <div class="section" role="group" aria-labelledby="order-pricing">
+    <h3 class="section-title" id="order-pricing">Pricing</h3>
+    <div class="pair">
+      <ui-form-field label="Tax type">
+        <select uiControl name="taxType" [(ngModel)]="draft.taxType" (ngModelChange)="onTaxTypeChange()">
+          @for (type of taxTypes; track type) { <option [ngValue]="type">{{ type }}</option> }
+        </select>
+      </ui-form-field>
+      <ui-form-field label="Tax" suffix="%" [hint]="draft.taxType === 'None' ? 'No tax applies.' : undefined"
+                     [error]="errorFor('taxPercent')">
+        <input uiControl type="number" name="taxPercent" min="0" max="100" step="0.01" inputmode="decimal"
+               [disabled]="draft.taxType === 'None'" [(ngModel)]="draft.taxPercent" />
+      </ui-form-field>
+    </div>
+    <ui-form-field label="Trade discount" suffix="%" hint="Pre-filled with the client's default discount; applied before tax."
+                   [error]="errorFor('discount')">
+      <input uiControl type="number" name="discount" min="0" max="100" step="0.01" inputmode="decimal" [(ngModel)]="draft.discount" />
+    </ui-form-field>
+  </div>
+
+  @if (c.preview; as p) {
+    <dl class="preview" aria-label="Line price preview">
+      <div><dt>{{ p.days }} {{ p.days === 1 ? 'day' : 'days' }}</dt><dd class="num">{{ p.subtotal | currency }}</dd></div>
+      @if (p.discountAmount) { <div><dt>Discount ({{ draft.discount }}%)</dt><dd class="num">−{{ p.discountAmount | currency }}</dd></div> }
+      <div><dt>{{ draft.taxType === 'None' ? 'Tax' : draft.taxType }} ({{ draft.taxPercent || 0 }}%)</dt><dd class="num">{{ p.taxAmount | currency }}</dd></div>
+      <div class="preview-total"><dt>Line total</dt><dd class="num">{{ p.total | currency }}</dd></div>
+    </dl>
+  }
+
+  <button ui-button type="submit" variant="primary" icon="plus" block [disabled]="!c.valid || busy()">Add to order</button>
+</form>

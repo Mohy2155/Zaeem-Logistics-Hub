@@ -1,0 +1,22 @@
+// Breakpoints (design D7). Sass variables because media queries cannot read custom properties.
+// Use from component styles with `@use 'breakpoints' as bp;` then `@include bp.up(lg) { ... }`.
+
+@use 'sass:map';
+
+$breakpoints: (
+  md: 768px,
+  lg: 1024px,
+  xl: 1280px,
+);
+
+@mixin up($name) {
+  @media (min-width: map.get($breakpoints, $name)) {
+    @content;
+  }
+}
+
+@mixin down($name) {
+  @media (max-width: (map.get($breakpoints, $name) - 0.02px)) {
+    @content;
+  }
+}
