@@ -1,0 +1,12 @@
+{
+  "name": "zaeem-logistics-hub",
+  "private": true,
+  "description": "Repository root. Forwards the common commands to the Angular app in zaeem-distribute-ui/.",
+  "scripts": {
+    "start": "npm --prefix zaeem-distribute-ui start",
+    "test": "npm --prefix zaeem-distribute-ui test -- --watch=false",
+    "build": "npm --prefix zaeem-distribute-ui run build",
+    "build:demo": "npm --prefix zaeem-distribute-ui run build:demo",
+    "deploy": "npm --prefix zaeem-distribute-ui run deploy"
+  }
+}

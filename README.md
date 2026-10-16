@@ -130,4 +130,4 @@ Open http://localhost:4200.
 cd zaeem-distribute-ui
 npm run deploy
 ```
-This builds the `prod-demo` configuration with the `/Zaeem-Logistics-Hub/` base path and publishes `dist/zaeem-distribute-ui/browser` to the `gh-pages` branch. Don't deploy a `production` build to GitHub Pages: it expects the API on `localhost` and has no demo data.
+`npm run deploy` also works from the repository root, which forwards `start`, `test`, `build`, `build:demo` and `deploy` to `zaeem-distribute-ui/` (run `npm install` inside `zaeem-distribute-ui/` first). This builds the `prod-demo` configuration with the `/Zaeem-Logistics-Hub/` base path and publishes `dist/zaeem-distribute-ui/browser` to the `gh-pages` branch. Don't deploy a `production` build to GitHub Pages: it expects the API on `localhost` and has no demo data.
