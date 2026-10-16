@@ -2,11 +2,11 @@
 
 ## 1. API test harness
 
-- [ ] 1.1 Add `ZaeemDistributeSystem/ZaeemDistributeSystem.sln` listing the API project; verify `dotnet build` succeeds from `ZaeemDistributeSystem/`
-- [ ] 1.2 Add `public partial class Program;` and a `Seed:Enabled` setting (seeding skipped only when it is `false`; migrations always run) to `Program.cs`; verify `dotnet run` on a fresh scratch database still seeds the three clients and two rentals
-- [ ] 1.3 Create the `ZaeemDistribute.Api.Tests` xUnit project (`Microsoft.AspNetCore.Mvc.Testing`, test SDK) and add it to the solution; verify `dotnet test` from `ZaeemDistributeSystem/` discovers and runs a placeholder test
-- [ ] 1.4 Add the test host fixture (D1–D3): `ZAEEM_TEST_SQL` with the localhost default, a `ZaeemDistribute_Test_<hex>` database migrated on start and dropped at the end, the `_Test_` name guard, a 60-second first-connection retry, and the sequential test collection; verify a run leaves no `ZaeemDistribute_Test_*` database behind and the real `ZaeemDistribute` row counts are unchanged
-- [ ] 1.5 Add the per-test reset and data builders (clients, rentals including cancelled ones, orders); verify with a test that a client inserted in one test is absent in the next, whichever runs first
+- [x] 1.1 Add `ZaeemDistributeSystem/ZaeemDistributeSystem.sln` listing the API project; verify `dotnet build` succeeds from `ZaeemDistributeSystem/`
+- [x] 1.2 Add `public partial class Program;` and a `Seed:Enabled` setting (seeding skipped only when it is `false`; migrations always run) to `Program.cs`; verify `dotnet run` on a fresh scratch database still seeds the three clients and two rentals
+- [x] 1.3 Create the `ZaeemDistribute.Api.Tests` xUnit project (`Microsoft.AspNetCore.Mvc.Testing`, test SDK) and add it to the solution; verify `dotnet test` from `ZaeemDistributeSystem/` discovers and runs a placeholder test
+- [x] 1.4 Add the test host fixture (D1–D3): `ZAEEM_TEST_SQL` with the localhost default, a `ZaeemDistribute_Test_<hex>` database migrated on start and dropped at the end, the `_Test_` name guard, a 60-second first-connection retry, and the sequential test collection; verify a run leaves no `ZaeemDistribute_Test_*` database behind and the real `ZaeemDistribute` row counts are unchanged
+- [x] 1.5 Add the per-test reset and data builders (clients, rentals including cancelled ones, orders); verify with a test that a client inserted in one test is absent in the next, whichever runs first
 
 ## 2. API business-rule tests
 
