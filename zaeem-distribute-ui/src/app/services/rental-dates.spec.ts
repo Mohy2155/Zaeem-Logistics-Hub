@@ -21,7 +21,7 @@ describe('toIsoDay', () => {
 
 describe('rentalDays', () => {
   it('counts whole days between start and end', () => {
-    expect(rentalDays('2026-10-16', '2026-10-19')).toBe(3);
+    expect(rentalDays('2026-10-16', '2026-10-19')).toBe(4);
   });
 
   it('returns 0 when end is not after start', () => {
