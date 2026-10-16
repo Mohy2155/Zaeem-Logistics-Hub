@@ -1,7 +1,5 @@
 import { Injectable, inject, signal } from '@angular/core';
-import { toObservable } from '@angular/core/rxjs-interop';
 import { LiveAnnouncer } from '@angular/cdk/a11y';
-import { map } from 'rxjs';
 
 export type ToastKind = 'success' | 'info' | 'error';
 
@@ -47,16 +45,6 @@ export class ToastService {
   dismiss(id: number): void {
     this.toasts.update(list => list.filter(t => t.id !== id));
   }
-
-  /**
-   * @deprecated Single-toast stream for the legacy shell overlay; removed when ui-toast-stack is mounted.
-   */
-  readonly toast$ = toObservable(this.toasts).pipe(
-    map(list => {
-      const latest = list[list.length - 1];
-      return { message: latest?.message ?? '', isError: latest?.kind === 'error', show: !!latest };
-    }),
-  );
 
   private push(kind: ToastKind, message: string): void {
     const toast: Toast = { id: this.nextId++, kind, message, sticky: kind === 'error' };

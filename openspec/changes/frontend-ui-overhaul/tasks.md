@@ -24,10 +24,10 @@
 
 ## 4. Application shell and navigation
 
-- [ ] 4.1 Rebuild the shell: skip link, banner/nav/main landmarks, grouped navigation with icons and `aria-current`, labelled sidebar ≥1280px, icon rail 768–1279px, top bar and off-canvas drawer <768px (CDK BreakpointObserver, focus-managed drawer that closes on navigation); verify at 390, 800 and 1440px and with a keyboard-only pass
-- [ ] 4.2 Add route `title` data, a `TitleStrategy` that produces "<Page> · Zaeem Logistics Hub", and change the root/wildcard redirects to `/dashboard`; verify with vitest for the title format and manually that all five existing paths still resolve
-- [ ] 4.3 Add the theme toggle to the shell at all breakpoints; verify that switching re-themes without a reload and persists after a reload
-- [ ] 4.4 Replace the sidebar reset link with a demo-mode notice and a Reset Demo Data action behind `ui-confirm-dialog`, shown only when `environment.useMockData` is true; verify that the demo build shows it and cancelling changes nothing, and that the full-stack build shows neither
+- [x] 4.1 Rebuild the shell: skip link, banner/nav/main landmarks, grouped navigation with icons and `aria-current`, labelled sidebar ≥1280px, icon rail 768–1279px, top bar and off-canvas drawer <768px (CDK BreakpointObserver, focus-managed drawer that closes on navigation); verify at 390, 800 and 1440px and with a keyboard-only pass
+- [x] 4.2 Add route `title` data, a `TitleStrategy` that produces "<Page> · Zaeem Logistics Hub", and change the root/wildcard redirects to `/dashboard`; verify with vitest for the title format and manually that all five existing paths still resolve
+- [x] 4.3 Add the theme toggle to the shell at all breakpoints; verify that switching re-themes without a reload and persists after a reload
+- [x] 4.4 Replace the sidebar reset link with a demo-mode notice and a Reset Demo Data action behind `ui-confirm-dialog`, shown only when `environment.useMockData` is true; verify that the demo build shows it and cancelling changes nothing, and that the full-stack build shows neither
 - [ ] 4.5 Mount `ui-toast-stack` in the shell, remove the old toast overlay, and remove the `app.scss` rules it replaced; verify that the success and error toasts from an order and a payment display and stack
 - [ ] 4.6 Verify there is no page-level horizontal scroll on every route at 360px and 1440px (`document.documentElement.scrollWidth <= innerWidth`)
 

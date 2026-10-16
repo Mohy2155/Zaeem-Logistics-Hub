@@ -1,55 +1,100 @@
-<div class="app-workspace">
-  <!-- Fixed Executive Sidebar (Locked Dimensions) -->
-  <aside class="sidebar">
-    <div class="sidebar-brand">
-      <div class="brand-icon">Z</div>
-      <div class="brand-text">
-        <h1>ZAEEM</h1>
-        <small>Executive Logistics</small>
-      </div>
+<a class="app-skip-link" href="#main-content" (click)="skipToContent($event)">Skip to content</a>
+
+<div class="app-shell" [class.is-collapsed]="collapsed()" [class.is-mobile]="layout() === 'mobile'">
+  @if (layout() === 'mobile') {
+    <header class="app-topbar">
+      <button #menuButton ui-icon-button icon="menu" label="Open navigation" class="app-on-dark"
+              aria-controls="app-nav" [attr.aria-expanded]="drawerOpen()" (click)="openDrawer()"></button>
+      <a routerLink="/dashboard" class="app-brand app-brand--compact" aria-label="Zaeem Logistics Hub, go to dashboard">
+        <span class="app-brand-mark" aria-hidden="true">Z</span>
+        <span class="app-brand-name">Zaeem</span>
+      </a>
+      <button ui-icon-button class="app-on-dark" [icon]="theme.theme() === 'dark' ? 'sun' : 'moon'"
+              [label]="theme.theme() === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'"
+              (click)="theme.toggle()"></button>
+    </header>
+
+    @if (drawerOpen()) {
+      <div class="app-scrim" (click)="closeDrawer()" aria-hidden="true"></div>
+    }
+  }
+
+  <header #sidebar id="app-nav" class="app-sidebar"
+         [class.is-open]="drawerOpen()"
+         [attr.role]="layout() === 'mobile' ? 'dialog' : null"
+         [attr.aria-modal]="layout() === 'mobile' && drawerOpen() ? 'true' : null"
+         [attr.aria-label]="layout() === 'mobile' ? 'Navigation' : null"
+         [attr.inert]="layout() === 'mobile' && !drawerOpen() ? '' : null"
+         [cdkTrapFocus]="layout() === 'mobile' && drawerOpen()"
+         (keydown.escape)="closeDrawer()">
+    <div class="app-sidebar-head">
+      <a routerLink="/dashboard" class="app-brand" aria-label="Zaeem Logistics Hub, go to dashboard">
+        <span class="app-brand-mark" aria-hidden="true">Z</span>
+        <span class="app-brand-text">
+          <span class="app-brand-name">Zaeem</span>
+          <span class="app-brand-sub">Logistics Hub</span>
+        </span>
+      </a>
+      @if (layout() === 'mobile') {
+        <button ui-icon-button icon="x" label="Close navigation" class="app-on-dark" (click)="closeDrawer()"></button>
+      }
     </div>
-    
-    <nav class="sidebar-nav">
-      <a routerLink="/portal" routerLinkActive="active" class="nav-item">
-        <span class="label">Client Portal</span>
-      </a>
-      <a routerLink="/admin" routerLinkActive="active" class="nav-item">
-        <span class="label">Admin Ledger</span>
-      </a>
-      <a routerLink="/dashboard" routerLinkActive="active" class="nav-item">
-        <span class="label">Operations Dashboard</span>
-      </a>
-      <a routerLink="/scheduler" routerLinkActive="active" class="nav-item">
-        <span class="label">Machinery Scheduler</span>
-      </a>
-      <a routerLink="/payments" routerLinkActive="active" class="nav-item">
-        <span class="label">Payments Portal</span>
-      </a>
-    </nav>
-    
-    <div class="sidebar-footer">
-      <div class="user-profile">
-        <div class="avatar">AD</div>
-        <div class="info">
-          <span class="name">Admin User</span>
-          <span class="role">System Executive</span>
+
+    <nav class="app-nav" aria-label="Main">
+      @for (group of navGroups; track group.label) {
+        <div class="app-nav-group">
+          <p class="app-nav-group-label" [id]="'nav-' + group.label">{{ group.label }}</p>
+          <ul [attr.aria-labelledby]="'nav-' + group.label">
+            @for (item of group.items; track item.path) {
+              <li>
+                <a class="app-nav-link" [routerLink]="item.path" routerLinkActive="is-active" ariaCurrentWhenActive="page"
+                   [attr.title]="collapsed() ? item.label : null">
+                  <ui-icon [name]="item.icon" [size]="20" />
+                  <span class="app-nav-label">{{ item.label }}</span>
+                </a>
+              </li>
+            }
+          </ul>
         </div>
+      }
+    </nav>
+
+    <div class="app-sidebar-foot">
+      @if (layout() !== 'mobile') {
+        <button type="button" class="app-nav-link app-nav-button" (click)="theme.toggle()"
+                [attr.title]="collapsed() ? (theme.theme() === 'dark' ? 'Light theme' : 'Dark theme') : null"
+                [attr.aria-label]="theme.theme() === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'">
+          <ui-icon [name]="theme.theme() === 'dark' ? 'sun' : 'moon'" [size]="20" />
+          <span class="app-nav-label">{{ theme.theme() === 'dark' ? 'Light theme' : 'Dark theme' }}</span>
+        </button>
+        <button type="button" class="app-nav-link app-nav-button" (click)="toggleRail()"
+                [attr.aria-label]="collapsed() ? 'Expand navigation' : 'Collapse navigation'"
+                [attr.aria-expanded]="!collapsed()" aria-controls="app-nav"
+                [attr.title]="collapsed() ? 'Expand navigation' : null">
+          <ui-icon [name]="collapsed() ? 'panel-left-open' : 'panel-left-close'" [size]="20" />
+          <span class="app-nav-label">Collapse</span>
+        </button>
+      } @else {
+        <button type="button" class="app-nav-link app-nav-button" (click)="theme.toggle()">
+          <ui-icon [name]="theme.theme() === 'dark' ? 'sun' : 'moon'" [size]="20" />
+          <span class="app-nav-label">{{ theme.theme() === 'dark' ? 'Switch to light theme' : 'Switch to dark theme' }}</span>
+        </button>
+      }
+    </div>
+  </header>
+
+  <div class="app-workspace">
+    @if (isDemo) {
+      <div class="app-demo-banner" role="note">
+        <ui-icon name="flask" [size]="16" />
+        <p><strong>Demo mode.</strong> Data is stored in this browser only.</p>
+        <button ui-button variant="ghost" size="sm" icon="rotate-ccw" (click)="resetDemoData()">Reset demo data</button>
       </div>
-      <button *ngIf="isDemoEnvironment" class="btn-text" (click)="resetDemoData()" style="color: #ef4444; width: 100%; text-align: left; padding: 1rem; border-top: 1px solid rgba(255,255,255,0.1); margin-top: 1rem; cursor: pointer;">
-        Reset Demo Data
-      </button>
-    </div>
-  </aside>
-
-  <!-- Main Workspace -->
-  <main class="main-content">
-    <router-outlet></router-outlet>
-  </main>
-
-  <!-- Global Toast Notification System -->
-  <div class="toast-overlay" *ngIf="toast$ | async as t" [class.show]="t.show">
-    <div class="toast-card" [class.error]="t.isError">
-      <span class="toast-message">{{ t.message }}</span>
-    </div>
+    }
+    <main id="main-content" class="app-main" tabindex="-1">
+      <router-outlet />
+    </main>
   </div>
 </div>
+
+<ui-toast-stack />
