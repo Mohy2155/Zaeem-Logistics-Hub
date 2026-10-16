@@ -1,5 +1,7 @@
 # Zaeem-Logistics-Hub: Full-Stack Fleet Workspace
 
+[![CI](https://github.com/Mohy2155/Zaeem-Logistics-Hub/actions/workflows/ci.yml/badge.svg)](https://github.com/Mohy2155/Zaeem-Logistics-Hub/actions/workflows/ci.yml)
+
 Zaeem Distribute is a full-stack commercial equipment rental and logistics management system designed for the heavy construction industry. The application enables B2B clients and equipment suppliers to manage machinery dispatch, calculate tiered rental rates (factoring in, optionally, any discounts and regional VAT), track equipment availability using unique asset identifiers, and process bulk orders with sequential invoicing.
 
 ##  Live Production Demo
@@ -139,6 +141,22 @@ ZAEEM_TEST_SQL="Server=localhost\SQLEXPRESS;Trusted_Connection=True;TrustServerC
 ZAEEM_TEST_SQL="Server=localhost,1433;User Id=sa;Password=<password>;TrustServerCertificate=True;" dotnet test
 ```
 The API's startup seed data can be switched off with `--Seed:Enabled=false`; the tests do this so each test starts from an empty database.
+
+---
+
+## Checks
+
+Every push to `main`, every pull request into it, and manual runs start [`.github/workflows/ci.yml`](.github/workflows/ci.yml). It runs three independent jobs, each reported as its own check:
+
+| Check | What it runs | Run it locally |
+|-------|--------------|----------------|
+| `frontend` | Unit tests (including the API contract cases against the demo mock), production build, demo build, WCAG contrast check | `npm test`, `npm run build`, `npm run build:demo`, `npm run check:contrast` in `zaeem-distribute-ui/` |
+| `backend` | API build and tests (business rules and contract cases) against SQL Server 2022 in a throwaway container | `dotnet test` in `ZaeemDistributeSystem/` (see [Run the API tests](#3-run-the-api-tests)) |
+| `e2e` | Playwright end-to-end tests against the demo build; traces and screenshots are kept as a run artifact when a test fails | `npm run e2e` in `zaeem-distribute-ui/` (see its [README](zaeem-distribute-ui/README.md#end-to-end-tests)) |
+
+A newer push cancels the checks still running for the same branch. The workflow can only read the repository: it never deploys or pushes, so the GitHub Pages demo changes only when someone runs `npm run deploy`.
+
+The demo and the API share one set of contract cases ([`contracts/`](contracts/README.md)), so a change to either side that breaks parity fails a check.
 
 ---
 
