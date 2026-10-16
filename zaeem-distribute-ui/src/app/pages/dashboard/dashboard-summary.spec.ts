@@ -57,7 +57,7 @@ describe('summarizeDashboard', () => {
     expect(summary.byType.find(t => t.name === 'Tower Crane T1')).toMatchObject({ onHire: 3, total: 2, percent: 100 });
   });
 
-  it('takes receivables from the API total and counts clients from real data', () => {
+  it('totals receivables like the Client Ledger and counts clients from real data', () => {
     const summary = summarizeDashboard([
       rental('a', 'Excavator X3000', '2026-10-14', '2026-10-21'),
       rental('b', 'Caterpillar Loader', '2026-10-20', '2026-10-22', { companyName: 'Swift Logistics' }),
@@ -68,6 +68,16 @@ describe('summarizeDashboard', () => {
     expect(summary.clientsWithBalance).toBe(2);
     expect(summary.activeClients).toBe(2);
     expect(summary.totalClients).toBe(3);
+  });
+
+  it('does not net a client credit against what other clients owe', () => {
+    const withCredit: CompaniesSnapshot = {
+      companies: [...clients.companies.slice(0, 2), { ...clients.companies[2], outstandingBalance: -606.5 }],
+      totalOutstanding: 96893.5,
+    };
+    const summary = summarizeDashboard([], withCredit, undefined, today);
+    expect(summary.receivables).toBe(97500);
+    expect(summary.clientsWithBalance).toBe(2);
   });
 
   it('handles an empty system without dividing by zero', () => {

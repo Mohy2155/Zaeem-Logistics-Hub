@@ -84,7 +84,8 @@ export class SchedulerComponent {
     const range = `${formatDate(r.startDate, 'mediumDate', 'en-US')} to ${formatDate(r.endDate, 'mediumDate', 'en-US')}`;
     const cues = [bar.continuesBefore ? 'starts before this period' : '', bar.continuesAfter ? 'continues after this period' : '']
       .filter(Boolean).join(', ');
-    return `${r.companyName}, ${row.name}${r.plateNumber ? ' ' + r.plateNumber : ''}, ${range}, ${bar.status}${cues ? ', ' + cues : ''}`;
+    // Starts with the bar's visible text (client, plate) so speech and voice control match what is shown.
+    return `${r.companyName}${r.plateNumber ? ' ' + r.plateNumber : ''}, ${row.name}, ${range}, ${bar.status}${cues ? ', ' + cues : ''}`;
   }
 
   protected openDetails(rental: ActiveRental): void {

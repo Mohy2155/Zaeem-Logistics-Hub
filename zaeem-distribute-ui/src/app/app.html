@@ -6,7 +6,7 @@
       <button #menuButton ui-icon-button icon="menu" label="Open navigation" class="app-on-dark"
               aria-controls="app-nav" [attr.aria-expanded]="drawerOpen()" (click)="openDrawer()"></button>
       <a routerLink="/dashboard" class="app-brand app-brand--compact" aria-label="Zaeem Logistics Hub, go to dashboard">
-        <span class="app-brand-mark" aria-hidden="true">Z</span>
+        <span class="app-brand-mark" aria-hidden="true"></span>
         <span class="app-brand-name">Zaeem</span>
       </a>
       <button ui-icon-button class="app-on-dark" [icon]="theme.theme() === 'dark' ? 'sun' : 'moon'"
@@ -29,10 +29,9 @@
          (keydown.escape)="closeDrawer()">
     <div class="app-sidebar-head">
       <a routerLink="/dashboard" class="app-brand" aria-label="Zaeem Logistics Hub, go to dashboard">
-        <span class="app-brand-mark" aria-hidden="true">Z</span>
+        <span class="app-brand-mark" aria-hidden="true"></span>
         <span class="app-brand-text">
-          <span class="app-brand-name">Zaeem</span>
-          <span class="app-brand-sub">Logistics Hub</span>
+          <span class="app-brand-name">Zaeem</span>{{ ' ' }}<span class="app-brand-sub">Logistics Hub</span>
         </span>
       </a>
       @if (layout() === 'mobile') {

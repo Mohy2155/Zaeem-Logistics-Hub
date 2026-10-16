@@ -24,6 +24,8 @@ export interface TableColumn<T> {
   firstDirection?: SortDirection;
   /** CSS width for the column on wide screens, e.g. '20%' or '8rem'. */
   width?: string;
+  /** Keeps the header text for screen readers only (e.g. a row-actions column); card mode still shows it. */
+  hideLabel?: boolean;
 }
 
 /** Stable sort; numbers compare numerically, strings case-insensitively; empty values sort last. */
@@ -80,6 +82,8 @@ export class UiTableFooter {
                     {{ col.label }}
                     <ui-icon [name]="sortIcon(col.key)" [size]="14" />
                   </button>
+                } @else if (col.hideLabel) {
+                  <span class="sr-only">{{ col.label }}</span>
                 } @else {
                   {{ col.label }}
                 }

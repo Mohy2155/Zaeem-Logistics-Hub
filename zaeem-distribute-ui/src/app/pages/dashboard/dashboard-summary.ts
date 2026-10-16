@@ -1,6 +1,7 @@
 import { ActiveRental, CompaniesSnapshot } from '../../services/company';
 import { FLEET_INVENTORY } from '../../services/fleet';
 import { RentalStatus, rentalStatus, toLocalDay } from '../../services/rental-dates';
+import { ledgerTotals } from '../admin/ledger';
 
 export interface DeploymentRow extends Omit<ActiveRental, 'status'> {
   status: RentalStatus;
@@ -22,6 +23,7 @@ export interface DashboardSummary {
   fleetSize: number;
   utilisation: number;
   byType: TypeUtilisation[];
+  /** Same figure as the Client Ledger's balance due: credits are not netted against it. */
   receivables: number;
   clientsWithBalance: number;
   activeClients: number;
@@ -33,7 +35,7 @@ const percentOf = (part: number, whole: number) => (whole > 0 ? Math.min(100, Ma
 /** Every dashboard figure, computed only from the loaded rentals and clients. */
 export function summarizeDashboard(
   rentals: ActiveRental[],
-  { companies, totalOutstanding }: CompaniesSnapshot,
+  { companies }: CompaniesSnapshot,
   inventory: Readonly<Record<string, number>> = FLEET_INVENTORY,
   today: Date = new Date(),
 ): DashboardSummary {
@@ -51,6 +53,7 @@ export function summarizeDashboard(
     return { name, onHire, total, percent: percentOf(onHire, total) };
   });
   const fleetSize = byType.reduce((sum, t) => sum + t.total, 0);
+  const balances = ledgerTotals(companies);
 
   return {
     deployments,
@@ -59,8 +62,8 @@ export function summarizeDashboard(
     fleetSize,
     utilisation: percentOf(active.length, fleetSize),
     byType,
-    receivables: totalOutstanding,
-    clientsWithBalance: companies.filter(c => c.outstandingBalance > 0).length,
+    receivables: balances.balanceDue,
+    clientsWithBalance: balances.withBalance,
     activeClients: new Set(deployments.map(r => r.companyName)).size,
     totalClients: companies.length,
   };

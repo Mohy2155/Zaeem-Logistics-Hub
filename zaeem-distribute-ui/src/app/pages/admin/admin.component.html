@@ -37,7 +37,7 @@
                   @case ('credit') { <ui-badge tone="success">Credit</ui-badge> }
                   @case ('settled') { <ui-badge tone="neutral">Settled</ui-badge> }
                 }
-                <span class="num" [class.strong]="balanceKind(c.outstandingBalance) === 'due'">{{ formatBalance(c.outstandingBalance) }}</span>
+                <span class="num" [class.strong]="balanceKind(c.outstandingBalance) === 'due'">{{ formatBalance(c.outstandingBalance, false) }}</span>
               </span>
             </ng-template>
             <ng-template uiCell="totalBilledToDate" let-c>
@@ -46,7 +46,7 @@
             <ng-template uiCell="actions" let-c>
               @if (balanceKind(c.outstandingBalance) === 'due') {
                 <a ui-button size="sm" variant="ghost" icon="hand-coins" routerLink="/payments" [queryParams]="{ client: c.companyId }"
-                   [attr.aria-label]="'Record payment for ' + c.companyName">Record payment</a>
+                   [attr.aria-label]="'Record payment for ' + c.companyName"><span class="action-text">Record payment</span></a>
               }
             </ng-template>
             <ng-template uiTableFooter>
