@@ -1,3 +1,5 @@
+using System.Data;
+using System.Globalization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ZaeemDistribute.Api.Models;
@@ -18,105 +20,98 @@ namespace ZaeemDistribute.Api.Controllers
             _context = context;
         }
 
-
         // POST: api/orders/place-bulk-order
         [HttpPost("place-bulk-order")]
         public async Task<IActionResult> PlaceBulkOrder([FromBody] OrderRequestDto request)
         {
-            try 
+            if (request.Items == null || request.Items.Count == 0)
+                return BadRequest(new { message = "Order must contain at least one item." });
+
+            // 1. Validate every line before touching the database
+            var lines = new List<(OrderItemDto Item, string Plate, DateTime Start, DateTime End)>();
+            foreach (var item in request.Items)
             {
-                // Attempt to use the Stored Procedure
-                var result = await _context.OrderResults
-                    .FromSqlRaw("EXEC sp_CheckCreditAndPlaceOrder @CompanyId = {0}, @OrderTotal = {1}", 
-                                request.CompanyId, request.OrderTotal) 
-                    .ToListAsync();
+                var plate = item.PlateNumber.Trim().ToUpperInvariant();
+                if (plate.Length == 0)
+                    return BadRequest(new { message = $"Plate number is required for {item.MachineName}." });
+                if (!TryParseDay(item.StartDate, out var start) || !TryParseDay(item.EndDate, out var end))
+                    return BadRequest(new { message = $"Invalid rental dates for plate {plate}." });
+                if (end <= start)
+                    return BadRequest(new { message = $"End date must be after start date for plate {plate}." });
+                if (item.LineTotal < 0 || item.Discount < 0 || item.Discount > 100 || item.TaxPercent < 0)
+                    return BadRequest(new { message = $"Invalid pricing for plate {plate}." });
 
-                var orderResult = result.FirstOrDefault();
-                
-                if (orderResult != null)
-                {
-                    // Seed/store rental items in DB
-                    if (request.Items != null && request.Items.Any())
-                    {
-                        var companyName = (await _context.Companies.FindAsync(request.CompanyId))?.CompanyName ?? "Unknown Company";
-                        foreach (var item in request.Items)
-                        {
-                            var rental = new RentalItem
-                            {
-                                MachineId = item.MachineId,
-                                MachineName = item.MachineName,
-                                CompanyName = companyName,
-                                PlateNumber = item.PlateNumber,
-                                StartDate = DateTime.TryParse(item.StartDate, out var sDate) ? sDate : DateTime.Now,
-                                EndDate = DateTime.TryParse(item.EndDate, out var eDate) ? eDate : DateTime.Now.AddDays(7),
-                                DailyRate = item.DailyRate,
-                                Discount = item.Discount,
-                                TotalAmount = item.LineTotal,
-                                Status = "Active",
-                                TaxType = item.TaxType,
-                                TaxPercent = item.TaxPercent
-                            };
-                            _context.RentalItems.Add(rental);
-                        }
-                        await _context.SaveChangesAsync();
-                    }
-                    return Ok(orderResult);
-                }
-
-                return BadRequest(new { message = "Transaction could not be processed by database." });
+                lines.Add((item, plate, start, end));
             }
-            catch (Exception)
+
+            // Serializable so two concurrent orders cannot both pass the double-booking check
+            await using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+
+            var company = await _context.Companies.FindAsync(request.CompanyId);
+            if (company == null) return NotFound(new { message = "Company not found." });
+
+            // 2. Double-booking check: against active bookings and within the order itself
+            var plates = lines.Select(l => l.Plate).Distinct().ToList();
+            var booked = await _context.RentalItems
+                .Where(r => r.Status != "Cancelled" && plates.Contains(r.PlateNumber))
+                .Select(r => new { r.PlateNumber, r.StartDate, r.EndDate })
+                .ToListAsync();
+
+            var taken = booked.Select(b => (Plate: b.PlateNumber.Trim().ToUpperInvariant(), Start: b.StartDate.Date, End: b.EndDate.Date)).ToList();
+            foreach (var line in lines)
             {
-                // FALLBACK: If Stored Procedure is missing, perform a basic C# implementation
-                // This ensures the system remains functional during development
-                var company = await _context.Companies.FindAsync(request.CompanyId);
-                if (company == null) return NotFound(new { message = "Company not found" });
-
-                // Increase balance (Balance Due System)
-                company.OutstandingBalance += request.OrderTotal;
-
-                // Create the record
-                var newOrder = new BulkOrder {
-                    CompanyId = request.CompanyId,
-                    OrderDate = DateTime.Now,
-                    TotalAmount = request.OrderTotal,
-                    OrderStatus = "Processed"
-                };
-
-                _context.BulkOrders.Add(newOrder);
-
-                if (request.Items != null && request.Items.Any())
+                // End dates are inclusive: the machine is unavailable on its return day
+                if (taken.Any(t => t.Plate == line.Plate && line.Start <= t.End && line.End >= t.Start))
                 {
-                    foreach (var item in request.Items)
-                    {
-                        var rental = new RentalItem
-                        {
-                            MachineId = item.MachineId,
-                            MachineName = item.MachineName,
-                            CompanyName = company.CompanyName,
-                            PlateNumber = item.PlateNumber,
-                            StartDate = DateTime.TryParse(item.StartDate, out var sDate) ? sDate : DateTime.Now,
-                            EndDate = DateTime.TryParse(item.EndDate, out var eDate) ? eDate : DateTime.Now.AddDays(7),
-                            DailyRate = item.DailyRate,
-                            Discount = item.Discount,
-                            TotalAmount = item.LineTotal,
-                            Status = "Active",
-                            TaxType = item.TaxType,
-                            TaxPercent = item.TaxPercent
-                        };
-                        _context.RentalItems.Add(rental);
-                    }
+                    return Conflict(new { message = $"Scheduling conflict: plate {line.Plate} is already booked during {line.Start:yyyy-MM-dd} to {line.End:yyyy-MM-dd}." });
                 }
+                taken.Add((line.Plate, line.Start, line.End));
+            }
 
-                await _context.SaveChangesAsync();
+            // 3. Bill the order (Balance Due System) from the line items, not a client-supplied total
+            var orderTotal = lines.Sum(l => Math.Round(l.Item.LineTotal, 2));
+            company.OutstandingBalance += orderTotal;
 
-                return Ok(new OrderResultDto {
-                    OrderId = newOrder.OrderId,
-                    Result = "SUCCESS",
-                    AmountBilled = request.OrderTotal,
-                    OutstandingBalance = company.OutstandingBalance
+            var order = new BulkOrder
+            {
+                CompanyId = company.CompanyId,
+                OrderDate = DateTime.Now,
+                TotalAmount = orderTotal,
+                OrderStatus = "Processed"
+            };
+            _context.BulkOrders.Add(order);
+            await _context.SaveChangesAsync(); // Assigns order.OrderId
+
+            foreach (var (item, plate, start, end) in lines)
+            {
+                _context.RentalItems.Add(new RentalItem
+                {
+                    BulkOrderId = order.OrderId,
+                    MachineId = item.MachineId,
+                    MachineName = item.MachineName,
+                    CompanyName = company.CompanyName,
+                    PlateNumber = plate,
+                    StartDate = start,
+                    EndDate = end,
+                    DailyRate = item.DailyRate,
+                    Discount = item.Discount,
+                    TotalAmount = Math.Round(item.LineTotal, 2),
+                    Status = "Active",
+                    TaxType = item.TaxType,
+                    TaxPercent = item.TaxPercent
                 });
             }
+
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            return Ok(new OrderResultDto
+            {
+                OrderId = order.OrderId,
+                Result = "SUCCESS",
+                AmountBilled = orderTotal,
+                OutstandingBalance = company.OutstandingBalance
+            });
         }
 
         // GET: api/orders/rentals
@@ -128,6 +123,7 @@ namespace ZaeemDistribute.Api.Controllers
         }
 
         // DELETE: api/orders/rentals/{id}
+        // Soft-cancels so the ledger keeps its history; repeating the call does not reverse the charge twice.
         [HttpDelete("rentals/{id}")]
         public async Task<IActionResult> DeleteRentalItem(int id)
         {
@@ -136,18 +132,22 @@ namespace ZaeemDistribute.Api.Controllers
             {
                 return NotFound(new { message = "Rental item not found" });
             }
+            if (rental.Status == "Cancelled")
+            {
+                return BadRequest(new { message = "Rental item is already cancelled" });
+            }
 
-            // Recalculate ledger balance: deduct rental's total amount from company's outstanding balance
+            // Reverse the rental's charge; a negative balance is a credit owed to the client
             var company = await _context.Companies.FirstOrDefaultAsync(c => c.CompanyName == rental.CompanyName);
             if (company != null)
             {
-                company.OutstandingBalance = Math.Max(0, company.OutstandingBalance - rental.TotalAmount);
+                company.OutstandingBalance -= rental.TotalAmount;
             }
 
-            _context.RentalItems.Remove(rental);
+            rental.Status = "Cancelled";
             await _context.SaveChangesAsync();
 
-            return Ok(new { message = "Rental item cancelled and removed successfully", outstandingBalance = company?.OutstandingBalance });
+            return Ok(new { message = "Rental item cancelled successfully", outstandingBalance = company?.OutstandingBalance });
         }
 
         // POST: api/orders/cancel/{id}
@@ -165,20 +165,18 @@ namespace ZaeemDistribute.Api.Controllers
                 return BadRequest(new { message = "Order is already cancelled" });
             }
 
+            // Only this order's rentals. Ones cancelled individually were already reversed.
+            var rentals = await _context.RentalItems.Where(r => r.BulkOrderId == order.OrderId).ToListAsync();
+            var alreadyReversed = rentals.Where(r => r.Status == "Cancelled").Sum(r => r.TotalAmount);
+            foreach (var rental in rentals)
+            {
+                rental.Status = "Cancelled";
+            }
+
             var company = await _context.Companies.FindAsync(order.CompanyId);
             if (company != null)
             {
-                // Reverse the balance increase (Balance Due System)
-                company.OutstandingBalance -= order.TotalAmount;
-
-                // Also cancel associated rental items
-                var activeRentals = await _context.RentalItems
-                    .Where(r => r.CompanyName == company.CompanyName && r.Status == "Active")
-                    .ToListAsync();
-                foreach (var rental in activeRentals)
-                {
-                    rental.Status = "Cancelled";
-                }
+                company.OutstandingBalance -= order.TotalAmount - alreadyReversed;
             }
 
             order.OrderStatus = "Cancelled";
@@ -186,26 +184,30 @@ namespace ZaeemDistribute.Api.Controllers
 
             return Ok(new { message = "Order cancelled successfully", outstandingBalance = company?.OutstandingBalance });
         }
+
+        private static bool TryParseDay(string value, out DateTime day)
+        {
+            var ok = DateTime.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed);
+            day = parsed.Date;
+            return ok;
+        }
     }
 
-    // This is the catcher's mitt for the JSON. 
+    // This is the catcher's mitt for the JSON.
     // .NET automatically maps Angular's lowercase JSON to these uppercase C# properties.
     public class OrderRequestDto
     {
         public int CompanyId { get; set; }
-        public decimal OrderTotal { get; set; }
         public List<OrderItemDto> Items { get; set; } = new List<OrderItemDto>();
     }
 
     public class OrderItemDto
     {
         public int MachineId { get; set; }
-        public string CompanyName { get; set; } = string.Empty;
         public string MachineName { get; set; } = string.Empty;
         public string PlateNumber { get; set; } = string.Empty;
         public string StartDate { get; set; } = string.Empty;
         public string EndDate { get; set; } = string.Empty;
-        public int RentalDays { get; set; }
         public decimal DailyRate { get; set; }
         public decimal Discount { get; set; }
         public decimal TaxPercent { get; set; }
