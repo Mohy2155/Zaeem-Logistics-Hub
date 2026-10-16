@@ -39,13 +39,13 @@
 
 ## 6. New Rental Order (portal)
 
-- [ ] 6.1 Extract a pure totals helper (subtotal, discount, tax, grand total, cent rounding) and a line-preview helper; verify with vitest that the results equal the current portal calculations for discount, tax "None" and rounding cases
-- [ ] 6.2 Split the portal into `order-form`, `order-summary` and `order-confirmation` sub-components with page header and two-column/sticky layout (stacked below 1024px with a sticky total bar); verify at 390/800/1440px
-- [ ] 6.3 Rebuild the order form with `ui-form-field` sections (Client, Machinery & Period, Pricing), helper text, line price preview, inline validation and the client lock explanation; verify that every scenario in `specs/order-entry-ui` is reproducible manually and that keyboard-only completion works
-- [ ] 6.4 Show booking conflicts on the plate field with the conflicting range and its source (existing booking or cart), linked via `aria-describedby`; verify with plate DX-7728 over its seeded dates, and with a duplicate in the cart
-- [ ] 6.5 Rebuild the order summary to the modified `cart-grid-layout` contract (shared grid, tokenised widths, tabular right-aligned amounts, contained remove action, narrow layout under 360px), with totals breakdown, empty state and a Clear Cart action behind confirmation; verify the alignment at 320px and 1440px
-- [ ] 6.6 Rebuild the confirmation as a `ui-confirm-dialog`-based success view (invoice number, client, total, Download PDF, Download Excel, New Order), keeping the existing generators; verify that both downloads still produce files with the same content as before
-- [ ] 6.7 Run the full order flow in both modes (success, 409 conflict keeps the cart and refreshes bookings, default discount persists, tax "None" gives 0%); verify that `ng test` passes and record the result in the PR notes
+- [x] 6.1 Extract a pure totals helper (subtotal, discount, tax, grand total, cent rounding) and a line-preview helper; verify with vitest that the results equal the current portal calculations for discount, tax "None" and rounding cases
+- [x] 6.2 Split the portal into `order-form`, `order-summary` and `order-confirmation` sub-components with page header and two-column/sticky layout (stacked below 1024px with a sticky total bar); verify at 390/800/1440px
+- [x] 6.3 Rebuild the order form with `ui-form-field` sections (Client, Machinery & Period, Pricing), helper text, line price preview, inline validation and the client lock explanation; verify that every scenario in `specs/order-entry-ui` is reproducible manually and that keyboard-only completion works
+- [x] 6.4 Show booking conflicts on the plate field with the conflicting range and its source (existing booking or cart), linked via `aria-describedby`; verify with plate DX-7728 over its seeded dates, and with a duplicate in the cart
+- [x] 6.5 Rebuild the order summary to the modified `cart-grid-layout` contract (shared grid, tokenised widths, tabular right-aligned amounts, contained remove action, narrow layout under 360px), with totals breakdown, empty state and a Clear Cart action behind confirmation; verify the alignment at 320px and 1440px
+- [x] 6.6 Rebuild the confirmation as a `ui-confirm-dialog`-based success view (invoice number, client, total, Download PDF, Download Excel, New Order), keeping the existing generators; verify that both downloads still produce files with the same content as before
+- [x] 6.7 Run the full order flow in both modes (success, 409 conflict keeps the cart and refreshes bookings, default discount persists, tax "None" gives 0%); verify that `ng test` passes and record the result in the PR notes
 
 ## 7. Fleet Schedule
 

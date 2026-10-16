@@ -1,0 +1,45 @@
+@if (items().length) {
+  @if (clientName()) {
+    <p class="client"><span class="client-label">Client</span> {{ clientName() }}</p>
+  }
+
+  <div class="cart" role="table" aria-label="Order items">
+    <div class="cart-row cart-head" role="row">
+      <span role="columnheader">Equipment</span>
+      <span role="columnheader" class="amount">Amount</span>
+      <span role="columnheader"><span class="sr-only">Actions</span></span>
+    </div>
+    @for (item of items(); track $index) {
+      <div class="cart-row" role="row">
+        <div class="description" role="cell">
+          <span class="item-name" [attr.title]="describe(item)">{{ item.machineName }} <span class="plate num">{{ item.plateNumber }}</span></span>
+          <span class="item-meta">
+            {{ item.startDate | date: 'mediumDate' }} – {{ item.endDate | date: 'mediumDate' }} · {{ item.rentalDays }} {{ item.rentalDays === 1 ? 'day' : 'days' }}
+            @if (item.discount > 0) { · {{ item.discount }}% off }
+            · {{ item.taxType === 'None' ? 'No tax' : item.taxType + ' ' + item.taxPercent + '%' }}
+          </span>
+        </div>
+        <span class="amount num" role="cell">{{ item.lineTotal | currency }}</span>
+        <span class="action" role="cell">
+          <button ui-icon-button icon="trash" size="sm" [label]="'Remove ' + describe(item)" [disabled]="busy()"
+                  (click)="remove.emit($index)"></button>
+        </span>
+      </div>
+    }
+  </div>
+
+  <dl class="totals">
+    <div><dt>Subtotal</dt><dd class="num">{{ totals().subtotal | currency }}</dd></div>
+    <div><dt>Discount</dt><dd class="num">{{ totals().discount ? '−' : '' }}{{ totals().discount | currency }}</dd></div>
+    <div><dt>Tax</dt><dd class="num">{{ totals().tax | currency }}</dd></div>
+    <div class="grand"><dt>Total</dt><dd class="num">{{ totals().grandTotal | currency }}</dd></div>
+  </dl>
+
+  <div class="actions">
+    <button ui-button variant="primary" icon="circle-check" block [busy]="busy()" (click)="place.emit()">Place order</button>
+    <button ui-button variant="ghost" icon="trash" block [disabled]="busy()" (click)="clear.emit()">Clear cart</button>
+  </div>
+} @else {
+  <ui-empty-state icon="cart" title="No items yet"
+                  message="Add machines with the form. Each line appears here with its price, and the order total updates as you go." />
+}

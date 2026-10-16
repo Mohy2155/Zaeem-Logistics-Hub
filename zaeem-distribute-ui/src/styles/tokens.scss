@@ -97,7 +97,7 @@
 
   // Fixed column widths for tabular summaries (cart-grid-layout).
   --col-amount: 7.5rem;
-  --col-action: 6.25rem;
+  --col-action: 2.75rem; // fits one small icon button (2rem) plus breathing room
 
   --z-sticky: 10;
   --z-drawer: 40;

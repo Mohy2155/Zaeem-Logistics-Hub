@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, Injectable, inject, input } from '@angular/core';
 import { DIALOG_DATA, Dialog, DialogConfig, DialogRef } from '@angular/cdk/dialog';
+import { Overlay } from '@angular/cdk/overlay';
 import { ComponentType } from '@angular/cdk/portal';
 import { firstValueFrom } from 'rxjs';
 import { UiButton, UiIconButton } from './button';
@@ -69,6 +70,7 @@ export class UiDialog {
 @Injectable({ providedIn: 'root' })
 export class UiDialogService {
   private readonly dialog = inject(Dialog);
+  private readonly overlay = inject(Overlay);
 
   /** Opens a dialog component; resolves with its close value (undefined when dismissed). */
   open<R, D = unknown, C = unknown>(component: ComponentType<C>, config: DialogConfig<D, DialogRef<R, C>> = {}): DialogRef<R, C> {
@@ -77,6 +79,9 @@ export class UiDialogService {
       backdropClass: 'ui-dialog-backdrop',
       autoFocus: 'first-tabbable',
       restoreFocus: true,
+      // The CDK's block strategy pins <html> at a negative offset, which shifts the sticky sidebar;
+      // page scrolling is locked in CSS instead (styles/dialog.scss).
+      scrollStrategy: this.overlay.scrollStrategies.noop(),
       ...config,
     });
   }
