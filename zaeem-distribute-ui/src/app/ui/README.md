@@ -13,7 +13,7 @@ Every page is built from the tokens in `src/styles/` and the primitives in this 
 | `forms.scss`, `table.scss`, `dialog.scss` | Global parts of form controls, data tables and dialogs, which render into page templates or the CDK overlay. |
 
 **Do:** use semantic tokens (`var(--color-text-muted)`) in components.
-**Don't:** use palette tokens or raw colours (`#4a5468`, `rgba(…)`) outside `src/styles/`, or write static `style="…"` attributes. The guard tests in `src/app/guards.spec.ts` fail the build on either.
+**Don't:** use palette tokens or raw colours (`#4a5468`, `rgba(…)`) outside `src/styles/`, write static `style="…"` attributes, or put emoji in templates. The guard tests in `src/app/style-guards.spec.ts` fail `ng test` on any of these and name the file and line. (The Excel/PDF generators are exempt from the colour rule: their colours style the exported documents, not the UI.)
 
 After changing a colour in `tokens.scss` or `themes.scss`, run `npm run check:contrast`. It recomputes the contrast table and fails if any text/background pair drops below WCAG AA.
 

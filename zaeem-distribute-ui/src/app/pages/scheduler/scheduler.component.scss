@@ -6,26 +6,7 @@
   --machine-col: 12rem;
   --day-w: 3.25rem;
   --lane-h: 3rem;
-}
-
-.toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  padding: var(--space-4) var(--space-5);
-  border-bottom: 1px solid var(--color-border);
-}
-
-.range-label {
-  font-size: var(--text-lg);
-  font-weight: var(--weight-semibold);
-}
-
-.range-meta {
-  color: var(--color-text-muted);
-  font-size: var(--text-sm);
+  --weekend-bg: color-mix(in srgb, var(--color-border) 45%, transparent);
 }
 
 .nav {
@@ -109,12 +90,16 @@
   text-align: center;
 
   &.weekend {
-    background: color-mix(in srgb, var(--color-border) 45%, transparent);
+    background: var(--weekend-bg);
   }
 
   &.today {
-    color: var(--color-accent-text);
     box-shadow: inset 0 -3px 0 var(--color-accent);
+  }
+
+  &.today,
+  &.today .dom {
+    color: var(--color-accent-text);
   }
 }
 
@@ -122,10 +107,6 @@
   color: var(--color-text);
   font-size: var(--text-md);
   font-weight: var(--weight-semibold);
-}
-
-.today .dom {
-  color: var(--color-accent-text);
 }
 
 .mon {
@@ -141,7 +122,7 @@
   border-left: 1px solid var(--color-border);
 
   &.weekend {
-    background: color-mix(in srgb, var(--color-border) 45%, transparent);
+    background: var(--weekend-bg);
   }
 
   &.today {
@@ -163,7 +144,7 @@
   font: inherit;
   text-align: start;
   cursor: pointer;
-  transition: filter var(--duration-fast) var(--ease-standard), box-shadow var(--duration-fast) var(--ease-standard);
+  transition: box-shadow var(--duration-fast) var(--ease-standard);
 
   &:hover {
     box-shadow: var(--shadow-md);
@@ -259,7 +240,7 @@
   border-radius: var(--radius-sm);
 
   &.weekend {
-    background: color-mix(in srgb, var(--color-border) 45%, transparent);
+    background: var(--weekend-bg);
     border-color: var(--color-border);
   }
 }
@@ -268,10 +249,6 @@
   :host {
     --machine-col: 8.5rem;
     --day-w: 3rem;
-  }
-
-  .toolbar {
-    padding-inline: var(--space-4);
   }
 
   .machine-cell {
