@@ -3,8 +3,9 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
-import { CompanyService, CompanyResponseDto, Machinery } from '../../services/company';
+import { CompanyService, CompanyResponseDto, Machinery, ActiveRental } from '../../services/company';
 import { ToastService } from '../../services/toast';
+import { findBookingConflict, normalizePlate, rentalDays, toIsoDay, toLocalDay } from '../../services/rental-dates';
 import * as ExcelJS from 'exceljs';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -75,7 +76,7 @@ export interface OrderLineItem {
           <div class="premium-grid" style="grid-template-columns: 1fr 1fr; gap: 1rem; margin: 0; padding: 0;">
             <div class="form-group">
               <label>Tax Type</label>
-              <select [(ngModel)]="taxType" name="taxType" required>
+              <select [(ngModel)]="taxType" (change)="onTaxTypeChange()" name="taxType" required>
                 <option value="VAT">VAT</option>
                 <option value="GST">GST</option>
                 <option value="Sales Tax">Sales Tax</option>
@@ -84,7 +85,7 @@ export interface OrderLineItem {
             </div>
             <div class="form-group">
               <label>Tax (%)</label>
-              <input type="number" [(ngModel)]="taxPercent" (change)="onFormChange()" name="taxPercent" min="0" max="100" required />
+              <input type="number" [(ngModel)]="taxPercent" (change)="onFormChange()" name="taxPercent" min="0" max="100" required [disabled]="taxType === 'None'" />
             </div>
           </div>
 
@@ -371,6 +372,7 @@ export class ClientPortalComponent implements OnInit, OnDestroy {
 
   cart: OrderLineItem[] = [];
   cartGrandTotal: number = 0;
+  rentals: ActiveRental[] = []; // Existing bookings, for the double-booking check
 
   showExportModal: boolean = false;
   lastProcessedCompany?: CompanyResponseDto;
@@ -388,7 +390,12 @@ export class ClientPortalComponent implements OnInit, OnDestroy {
       next: data => this.machinery = data,
       error: () => this.toastService.show('Failed to fetch machinery.', true)
     });
-    this.minDate = new Date().toISOString().split('T')[0];
+    this.loadRentals();
+    this.minDate = toIsoDay();
+  }
+
+  private loadRentals(): void {
+    this.companyService.getRentals().pipe(takeUntil(this.destroy$)).subscribe(data => this.rentals = data);
   }
 
   ngOnDestroy(): void {
@@ -396,52 +403,51 @@ export class ClientPortalComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
+  private get selectedCompany(): CompanyResponseDto | undefined {
+    return this.companies.find(c => c.companyId === Number(this.selectedCompanyId));
+  }
+
   onCompanyChange(): void {
-    const company = this.companies.find(c => c.companyId === Number(this.selectedCompanyId));
-    this.discountOverride = company?.defaultDiscount || 0;
+    this.discountOverride = this.selectedCompany?.defaultDiscount || 0;
+    this.onFormChange();
+  }
+
+  onTaxTypeChange(): void {
+    if (this.taxType === 'None') this.taxPercent = 0;
     this.onFormChange();
   }
 
   onFormChange(): void {
-    if (this.selectedMachineId && this.startDate && this.endDate) {
-      const machine = this.machinery.find(m => m.id === Number(this.selectedMachineId));
-      
-      const start = new Date(this.startDate);
-      const end = new Date(this.endDate);
+    const machine = this.machinery.find(m => m.id === Number(this.selectedMachineId));
+    this.previewDays = machine && this.startDate && this.endDate ? rentalDays(this.startDate, this.endDate) : 0;
 
-      if (end > start) {
-        const diffTime = Math.abs(end.getTime() - start.getTime());
-        this.previewDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        const subtotal = this.previewDays * (machine?.dailyRate || 0);
-        const discounted = subtotal * (1 - (this.discountOverride / 100));
-        this.previewTotal = discounted * (1 + (this.taxPercent / 100));
-      } else {
-        this.previewDays = 0;
-        this.previewTotal = 0;
-      }
-    } else {
-      this.previewTotal = 0;
-      this.previewDays = 0;
-    }
+    const subtotal = this.previewDays * (machine?.dailyRate || 0);
+    const discounted = subtotal * (1 - ((this.discountOverride || 0) / 100));
+    const total = discounted * (1 + ((this.taxPercent || 0) / 100));
+    this.previewTotal = Math.round(total * 100) / 100; // Bill in whole cents
   }
 
   get lockedCompanyName(): string {
-    const company = this.companies.find(c => c.companyId === Number(this.selectedCompanyId));
-    return company ? company.companyName : 'Pending Selection...';
+    return this.selectedCompany?.companyName ?? 'Pending Selection...';
   }
 
   get isEndDateValid(): boolean {
     if (!this.startDate || !this.endDate) return true;
-    return new Date(this.endDate) > new Date(this.startDate);
+    return rentalDays(this.startDate, this.endDate) > 0;
   }
 
   get canAddToOrder(): boolean {
+    const discount = this.discountOverride || 0;
+    const tax = this.taxPercent || 0;
     return (
-      this.selectedMachineId > 0 &&
+      Number(this.selectedCompanyId) > 0 &&
+      Number(this.selectedMachineId) > 0 &&
       !!this.startDate &&
       !!this.endDate &&
       this.isEndDateValid &&
-      !!this.plateNumber
+      !!normalizePlate(this.plateNumber) &&
+      discount >= 0 && discount <= 100 &&
+      tax >= 0 && tax <= 100
     );
   }
 
@@ -449,9 +455,13 @@ export class ClientPortalComponent implements OnInit, OnDestroy {
     if (!this.canAddToOrder) return;
     const machine = this.machinery.find(m => m.id === Number(this.selectedMachineId));
     if (!machine) return;
+    this.onFormChange(); // Price from the current inputs, not a possibly stale preview
 
-    if (this.cart.some(item => item.plateNumber === this.plateNumber)) {
-      this.toastService.show('Scheduling Conflict: A machine with this plate number is already in your active order.', true);
+    const candidate = { plateNumber: normalizePlate(this.plateNumber), startDate: this.startDate, endDate: this.endDate };
+    const conflict = findBookingConflict(candidate, [...this.cart, ...this.rentals]);
+    if (conflict) {
+      const until = toLocalDay(conflict.endDate).toLocaleDateString();
+      this.toastService.show(`Scheduling Conflict: plate ${candidate.plateNumber} is already booked until ${until}.`, true);
       return;
     }
 
@@ -462,18 +472,18 @@ export class ClientPortalComponent implements OnInit, OnDestroy {
       endDate: this.endDate,
       rentalDays: this.previewDays,
       dailyRate: machine.dailyRate,
-      discount: this.discountOverride,
+      discount: this.discountOverride || 0,
       lineTotal: this.previewTotal,
-      plateNumber: this.plateNumber,
+      plateNumber: candidate.plateNumber,
       taxType: this.taxType,
-      taxPercent: this.taxPercent
+      taxPercent: this.taxPercent || 0
     });
     this.updateGrandTotal();
     this.resetFormSelection();
   }
 
   updateGrandTotal(): void {
-    this.cartGrandTotal = this.cart.reduce((sum, item) => sum + item.lineTotal, 0);
+    this.cartGrandTotal = Math.round(this.cart.reduce((sum, item) => sum + item.lineTotal, 0) * 100) / 100;
   }
 
   removeItem(index: number): void {
@@ -494,7 +504,6 @@ export class ClientPortalComponent implements OnInit, OnDestroy {
 
     this.companyService.placeBulkOrder({
       companyId: Number(this.selectedCompanyId),
-      orderTotal: this.cartGrandTotal,
       items: this.cart
     }).subscribe({
       next: (response: any) => {
@@ -514,7 +523,8 @@ export class ClientPortalComponent implements OnInit, OnDestroy {
           
           this.cart = [];
           this.cartGrandTotal = 0;
-          
+          this.loadRentals(); // New bookings must count in the next conflict check
+
           this.showExportModal = true;
           this.toastService.show('Bulk Order Processed Successfully');
         } else {
@@ -524,7 +534,9 @@ export class ClientPortalComponent implements OnInit, OnDestroy {
       error: (err: any) => {
         this.isProcessing = false;
         console.error('Portal validation checkout failed:', err);
-        this.toastService.show('Transaction failed', true);
+        // Surface the API's reason (e.g. a 409 scheduling conflict) instead of a generic message
+        this.toastService.show(err.error?.message || 'Transaction failed', true);
+        if (err.status === 409) this.loadRentals();
       }
     });
   }
@@ -582,7 +594,7 @@ export class ClientPortalComponent implements OnInit, OnDestroy {
           itemNum: i + 1,
           machineName: item.machineName,
           plateNumber: item.plateNumber,
-          rentalPeriod: `${new Date(item.startDate).toLocaleDateString()} to ${new Date(item.endDate).toLocaleDateString()}`,
+          rentalPeriod: `${toLocalDay(item.startDate).toLocaleDateString()} to ${toLocalDay(item.endDate).toLocaleDateString()}`,
           totalDays: item.rentalDays,
           dailyRate: item.dailyRate,
           discount: item.discount + '%',
@@ -639,8 +651,9 @@ export class ClientPortalComponent implements OnInit, OnDestroy {
       const url = window.URL.createObjectURL(blob);
       const anchor = document.createElement('a');
       anchor.href = url;
-      anchor.download = `Invoice_${company.companyName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`;
+      anchor.download = `Invoice_${company.companyName.replace(/\s+/g, '_')}_${toIsoDay()}.xlsx`;
       anchor.click();
+      window.URL.revokeObjectURL(url);
     } catch (e) {
       console.error(e);
       this.toastService.show('Failed to generate document.', true);
@@ -663,7 +676,7 @@ export class ClientPortalComponent implements OnInit, OnDestroy {
         index + 1,
         item.machineName,
         item.plateNumber,
-        `${new Date(item.startDate).toLocaleDateString()} to ${new Date(item.endDate).toLocaleDateString()}`,
+        `${toLocalDay(item.startDate).toLocaleDateString()} to ${toLocalDay(item.endDate).toLocaleDateString()}`,
         item.rentalDays,
         `$${item.dailyRate.toFixed(2)}`,
         `${item.discount}%`,
@@ -686,7 +699,7 @@ export class ClientPortalComponent implements OnInit, OnDestroy {
       doc.setTextColor(30, 41, 59);
       doc.text(`TOTAL DUE: $${this.completedOrderTotal.toFixed(2)}`, 140, finalY + 10);
 
-      doc.save(`Invoice_${company.companyName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
+      doc.save(`Invoice_${company.companyName.replace(/\s+/g, '_')}_${toIsoDay()}.pdf`);
     } catch (e) {
       console.error(e);
       this.toastService.show('Failed to generate document.', true);
@@ -701,7 +714,7 @@ export class ClientPortalComponent implements OnInit, OnDestroy {
 
   private resetFormSelection(): void {
     this.selectedMachineId = 0;
-    this.discountOverride = 0;
+    this.discountOverride = this.selectedCompany?.defaultDiscount || 0; // Next line keeps the client's discount
     this.startDate = '';
     this.endDate = '';
     this.previewTotal = 0;

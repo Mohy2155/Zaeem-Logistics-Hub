@@ -14,7 +14,8 @@ export interface CompanyResponseDto {
 
 export interface ActiveRental {
   id: string;
-  orderId?: number; // Added to link to backend order
+  orderId?: number; // Backend BulkOrderId; absent for rentals created before orders were linked
+  machineId?: number;
   companyName: string;
   machineName: string;
   plateNumber?: string;
@@ -28,10 +29,23 @@ export interface ActiveRental {
   taxPercent?: number;
 }
 
+export interface OrderRequestItem {
+  machineId: number;
+  machineName: string;
+  plateNumber: string;
+  startDate: string;
+  endDate: string;
+  dailyRate: number;
+  discount: number;
+  taxType: string;
+  taxPercent: number;
+  lineTotal: number;
+}
+
+// The order total is computed server-side from the line items.
 export interface OrderRequestDto {
   companyId: number;
-  orderTotal: number;
-  items?: any[]; // Optional items for local tracking
+  items: OrderRequestItem[];
 }
 
 export interface Machinery {
@@ -63,21 +77,16 @@ export class CompanyService {
   private machinerySubject = new BehaviorSubject<Machinery[]>(this.machineryCatalog);
   machinery$ = this.machinerySubject.asObservable();
 
-  private rentalsSubject = new BehaviorSubject<ActiveRental[]>([]);
-  rentals$ = this.rentalsSubject.asObservable();
-
-  private companiesUrl = `${environment.apiUrl}/api/Companies`; 
+  private companiesUrl = `${environment.apiUrl}/api/Companies`;
   private ordersUrl = `${environment.apiUrl}/api/orders`;
   private paymentsUrl = `${environment.apiUrl}/api/payments`;
 
   constructor(private http: HttpClient) {
-    // Initial load from "API"
-    this.fetchInitialCompanies();
+    this.refreshCompanies();
   }
 
-  private fetchInitialCompanies(): void {
-    // In a real scenario, we'd fetch from HttpClient. 
-    // For this mock/offline exercise, if the API fails, we use fallback data.
+  // The API owns balances; re-read them after every mutation instead of patching local copies.
+  private refreshCompanies(): void {
     this.http.get<any>(this.companiesUrl).subscribe({
       next: (data) => {
         if (data && data.items) {
@@ -111,7 +120,8 @@ export class CompanyService {
     return this.http.get<any[]>(`${this.ordersUrl}/rentals`).pipe(
       map(items => items.map(item => ({
         id: item.rentalItemId.toString(),
-        orderId: item.rentalItemId,
+        orderId: item.bulkOrderId ?? undefined,
+        machineId: item.machineId,
         companyName: item.companyName,
         machineName: item.machineName,
         plateNumber: item.plateNumber,
@@ -124,119 +134,32 @@ export class CompanyService {
         taxType: item.taxType,
         taxPercent: item.taxPercent
       }))),
-      tap(data => this.rentalsSubject.next(data)),
-      catchError(() => {
-        return this.rentals$;
+      catchError(err => {
+        console.error('Failed to fetch rentals from', this.ordersUrl, err);
+        return of([]);
       })
     );
   }
 
-  // Increases balance and total billed for post-paid B2B simulation
+  // Post-paid B2B: the API bills the order onto the company's outstanding balance
   placeBulkOrder(payload: OrderRequestDto): Observable<any> {
-    const currentCompanies = this.companiesSubject.value;
-    const companyIndex = currentCompanies.findIndex(c => c.companyId === payload.companyId);
-
-    if (companyIndex !== -1) {
-      const company = currentCompanies[companyIndex];
-      
-      // In a real scenario, we'd call the API:
-      return this.http.post<any>(`${this.ordersUrl}/place-bulk-order`, payload).pipe(
-        tap(result => {
-          // Update local state - No upper limit block on checkout anymore
-          const updatedCompanies = [...currentCompanies];
-          updatedCompanies[companyIndex] = {
-            ...company,
-            outstandingBalance: company.outstandingBalance + payload.orderTotal,
-            totalBilledToDate: company.totalBilledToDate + payload.orderTotal
-          };
-          this.companiesSubject.next(updatedCompanies);
-          this.totalOutstandingSubject.next(this.totalOutstandingSubject.value + payload.orderTotal);
-
-          // Add to rentals if items are present
-          if (payload.items && payload.items.length > 0) {
-            const newRentals: ActiveRental[] = payload.items.map(item => ({
-              id: Math.random().toString(36).substr(2, 9),
-              orderId: result?.orderId,
-              companyName: company.companyName,
-              machineName: item.machineName,
-              plateNumber: item.plateNumber, // Mapped for validation
-              startDate: item.startDate,
-              endDate: item.endDate,
-              dailyRate: item.dailyRate,
-              discount: item.discount,
-              totalAmount: item.lineTotal,
-              status: 'Active',
-              taxType: item.taxType,
-              taxPercent: item.taxPercent
-            }));
-            this.rentalsSubject.next([...this.rentalsSubject.value, ...newRentals]);
-          }
-        })
-      );
-    }
-    return of(false).pipe(delay(500));
-  }
-
-  // New method to cancel a processed order via DELETE endpoint
-  cancelOrder(orderId: number, rentalId: string): Observable<any> {
-    return this.http.delete(`${this.ordersUrl}/rentals/${rentalId}`).pipe(
-      tap(() => {
-        // Find the rental to update its status locally and adjust company balance
-        const rentals = this.rentalsSubject.value;
-        const rental = rentals.find(r => r.id === rentalId);
-        
-        if (rental) {
-          // Remove the schedule item from local list
-          const updatedRentals = rentals.filter(r => r.id !== rentalId);
-          this.rentalsSubject.next(updatedRentals);
-
-          // Also update the company's outstanding balance
-          const companies = this.companiesSubject.value;
-          const companyIndex = companies.findIndex(c => c.companyName === rental.companyName);
-          if (companyIndex !== -1) {
-            const updatedCompanies = [...companies];
-            updatedCompanies[companyIndex] = {
-              ...updatedCompanies[companyIndex],
-              outstandingBalance: Math.max(0, updatedCompanies[companyIndex].outstandingBalance - rental.totalAmount)
-            };
-            this.companiesSubject.next(updatedCompanies);
-            this.totalOutstandingSubject.next(updatedCompanies.reduce((sum, c) => sum + c.outstandingBalance, 0));
-          }
-        }
-      })
+    return this.http.post<any>(`${this.ordersUrl}/place-bulk-order`, payload).pipe(
+      tap(() => this.refreshCompanies())
     );
   }
 
   // Deducts from outstandingBalance
   recordPayment(companyId: number, amount: number): Observable<any> {
-    const payload = { companyId, amount };
-    return this.http.post<any>(`${this.paymentsUrl}/record`, payload).pipe(
-      tap(result => {
-        if (result && result.result === 'SUCCESS') {
-          const currentCompanies = this.companiesSubject.value;
-          const companyIndex = currentCompanies.findIndex(c => c.companyId === companyId);
-          if (companyIndex !== -1) {
-            const company = currentCompanies[companyIndex];
-            const updatedCompanies = [...currentCompanies];
-            updatedCompanies[companyIndex] = {
-              ...company,
-              outstandingBalance: Math.max(0, company.outstandingBalance - amount)
-            };
-            this.companiesSubject.next(updatedCompanies);
-            this.totalOutstandingSubject.next(updatedCompanies.reduce((sum, c) => sum + c.outstandingBalance, 0));
-          }
-        }
-      })
+    return this.http.post<any>(`${this.paymentsUrl}/record`, { companyId, amount }).pipe(
+      tap(() => this.refreshCompanies())
     );
   }
 
   getReceipts(): Observable<any[]> {
     return this.http.get<any[]>(`${this.paymentsUrl}/receipts`).pipe(
-      catchError(() => {
-        return of([
-          { receiptId: 'REC-1001', companyId: 1, companyName: 'Build-It Corp', amount: 5000, paymentDate: new Date(Date.now() - 24*60*60*1000).toISOString() },
-          { receiptId: 'REC-1002', companyId: 2, companyName: 'Swift Logistics', amount: 15000, paymentDate: new Date(Date.now() - 12*24*60*60*1000).toISOString() }
-        ]);
+      catchError(err => {
+        console.error('Failed to fetch receipts from', this.paymentsUrl, err);
+        return of([]);
       })
     );
   }

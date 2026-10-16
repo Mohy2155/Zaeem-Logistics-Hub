@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
-import { CompanyService, CompanyResponseDto, ActiveRental } from '../../services/company';
+import { CompanyService, CompanyResponseDto } from '../../services/company';
 import { ToastService } from '../../services/toast';
 import * as ExcelJS from 'exceljs';
 import jsPDF from 'jspdf';
@@ -71,7 +71,10 @@ import autoTable from 'jspdf-autotable';
             <input type="number" [(ngModel)]="paymentAmount" name="paymentAmount" placeholder="0.00" min="1" required />
           </div>
 
-          <button type="submit" class="btn-premium action" [disabled]="selectedAdminCompanyId === 0 || paymentAmount <= 0">
+          <small class="text-danger" *ngIf="selectedPaymentCompany && paymentAmount > selectedPaymentCompany.outstandingBalance">
+            Exceeds the outstanding balance of {{ selectedPaymentCompany.outstandingBalance | currency }}.
+          </small>
+          <button type="submit" class="btn-premium action" [disabled]="!canRecordPayment">
             Record Payment from Client
           </button>
         </form>
@@ -271,7 +274,6 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
   
   companies: CompanyResponseDto[] = [];
-  rentals: ActiveRental[] = [];
   selectedAdminCompanyId: number = 0;
   paymentAmount: number = 0;
 
@@ -289,62 +291,44 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
+  // companies$ is a long-lived stream, so one subscription keeps the ledger current after payments
   loadData(): void {
     this.companyService.getCompanies().pipe(takeUntil(this.destroy$)).subscribe(data => {
       this.companies = data;
       this.cdr.markForCheck();
     });
-    this.companyService.getRentals().pipe(takeUntil(this.destroy$)).subscribe(data => {
-      this.rentals = data;
-      this.cdr.markForCheck();
-    });
   }
 
-  cancelProcessedOrder(orderId: number, rentalId: string): void {
-    this.companyService.cancelOrder(orderId, rentalId).pipe(takeUntil(this.destroy$)).subscribe({
-      next: () => {
-        this.toastService.show('Deployment order cancelled and balance recalculated.');
-        this.loadData();
-      },
-      error: (err) => {
-        this.toastService.show('Failed to cancel deployment: ' + (err.error?.message || err.message), true);
-        this.cdr.markForCheck();
-      }
-    });
+  get selectedPaymentCompany(): CompanyResponseDto | undefined {
+    return this.companies.find(c => c.companyId === Number(this.selectedAdminCompanyId));
   }
 
-  getRentalStatus(startDate: string, endDate: string): string {
-    const today = new Date();
-    today.setHours(0,0,0,0);
-    
-    const start = new Date(startDate);
-    start.setHours(0,0,0,0);
-    
-    const end = new Date(endDate);
-    end.setHours(0,0,0,0);
-
-    if (today < start) {
-      return 'Pending';
-    } else if (today >= start && today <= end) {
-      return 'Active';
-    } else {
-      return 'Expired';
-    }
+  get canRecordPayment(): boolean {
+    const company = this.selectedPaymentCompany;
+    return !!company && this.paymentAmount > 0 && this.paymentAmount <= company.outstandingBalance;
   }
 
   recordPayment(): void {
-    if (this.selectedAdminCompanyId === 0 || this.paymentAmount <= 0) return;
-    const company = this.companies.find(c => c.companyId === Number(this.selectedAdminCompanyId));
+    if (!this.canRecordPayment) return;
+    const company = this.selectedPaymentCompany;
+    const amount = this.paymentAmount;
 
-    this.companyService.recordPayment(Number(this.selectedAdminCompanyId), this.paymentAmount).pipe(takeUntil(this.destroy$)).subscribe(response => {
-      if (response && response.result === 'SUCCESS') {
-        this.receiptId = response.receiptId || 'REC-PENDING';
-        this.lastPaymentCompany = company;
-        this.lastPaymentAmount = this.paymentAmount;
-        this.showReceiptModal = true;
-        
-        this.paymentAmount = 0;
-        this.loadData();
+    this.companyService.recordPayment(company!.companyId, amount).pipe(takeUntil(this.destroy$)).subscribe({
+      next: response => {
+        if (response && response.result === 'SUCCESS') {
+          this.receiptId = response.receiptId || 'REC-PENDING';
+          this.lastPaymentCompany = company;
+          this.lastPaymentAmount = amount;
+          this.showReceiptModal = true;
+          this.paymentAmount = 0;
+        } else {
+          this.toastService.show('Payment could not be recorded.', true);
+        }
+        this.cdr.markForCheck();
+      },
+      error: err => {
+        this.toastService.show(err.error?.message || 'Payment could not be recorded.', true);
+        this.cdr.markForCheck();
       }
     });
   }

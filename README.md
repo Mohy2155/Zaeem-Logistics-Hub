@@ -6,7 +6,7 @@ Zaeem Distribute is a full-stack commercial equipment rental and logistics manag
 The frontend client interface is compiled and deployed live. You can interact with the responsive dashboard directly in your browser:
  **[Launch Zaeem Logistics Dashboard](https://mohy2155.github.io/Zaeem-Logistics-Hub/)**
 
-*(Note: The live frontend interface demonstrates UI workflows, form state routing, and responsive dashboard modules. It connects to mock client states as the .NET 8 API server operates within private local development infrastructure).*
+*(Note: The live frontend interface demonstrates UI workflows, form state routing, and responsive dashboard modules. It runs entirely in the browser on demo data kept in `localStorage` (the **Reset Demo Data** button restores it). Clone the repository to run the full stack against the real .NET API and SQL Server database).*
 
 ---
 
@@ -16,9 +16,8 @@ The frontend client interface is compiled and deployed live. You can interact wi
 Zaeem-Logistics-Hub/
 ├── README.md                 <-- System Overview & Developer Guide
 ├── Project Methodology       <-- Functional Specifications Document
-├── ZaeemDistributeSystem/    <-- Backend Server Application (.NET 8)
-│   ├── src/                  <-- Core Controllers, Services, and Domain Domain
-│   └── ZaeemDistribute.sln   <-- Microsoft Visual Studio Solution File
+├── ZaeemDistributeSystem/    <-- Backend Server Application (.NET 9)
+│   └── ZaeemDistribute.Api/  <-- Controllers, Models, DTOs and EF Core Migrations
 └── zaeem-distribute-ui/      <-- Frontend Client Dashboard (Angular)
     ├── src/                  <-- Reactive View Layers, Forms, and State Routers
     ├── angular.json          <-- Workspace Build Pipelines
@@ -33,7 +32,7 @@ A responsive administrative dashboard built with **Angular** and **TypeScript**,
 
 ### Backend Platform — `ZaeemDistributeSystem`
 
-A high-performance **.NET 8 REST API** powered by **Entity Framework Core** and **Microsoft SQL Server**, responsible for enforcing business rules, transactional integrity, scheduling validation, financial processing, and asset lifecycle management.
+A high-performance **.NET 9 REST API** powered by **Entity Framework Core** and **Microsoft SQL Server**, responsible for enforcing business rules, transactional integrity, scheduling validation, financial processing, and asset lifecycle management.
 
 ---
 
@@ -60,69 +59,54 @@ Added a separate component to record payments received from the partnered compan
 
 ---
 
-## Deployment Strategy
+## Running Modes
 
-The Angular frontend is compiled into optimized static assets and deployed to **GitHub Pages** through an automated build pipeline. Production builds are generated from the `zaeem-distribute-ui` workspace and published directly to the repository's deployment branch for public hosting.
+| Mode | Command (in `zaeem-distribute-ui`) | Data source |
+|------|------------------------------------|-------------|
+| Local full stack | `npm start` | Real .NET API + SQL Server database |
+| Self-hosted production build | `npm run build` | Real .NET API + SQL Server database |
+| GitHub Pages demo | `npm run deploy` | Browser-only demo data (`localStorage`), no server needed |
 
+The demo build (`prod-demo` configuration) swaps in `environment.prod-demo.ts`, which turns on the mock API interceptor. Every other build talks to the real API at `http://localhost:5234`.
 
-# Move into the frontend application directory
+---
 
+## Local Development (Full Stack)
+
+### Requirements
+- .NET 9 SDK
+- Node.js 20+ and npm
+- Microsoft SQL Server (Developer/Express edition or LocalDB)
+
+### 1. Start the API (creates the database automatically)
 ```bash
-cd zaeem-distribute-ui
-```
-## Compile production assets and inject the target repository URL path base
-
-```bash
-npx ng build --configuration production --base-href="/Zaeem-Logistics-Hub/"
-```
-
-## Deploy the generated build artifacts to the remote gh-pages hosting branch
-```bash
-
-npx angular-cli-ghpages --dir=dist/zaeem-distribute-ui/browser
-
-```
-Local Development Execution Roadmap
-To run the complete system environment locally, boot up the independent application components in separate terminal views:
-
-System Requirements
-.NET 8.0 SDK or newer
-
-Node.js (v18.x / v20.x recommended) & npm
-
-Microsoft SQL Server (2022 Express or LocalDB context)
-
-1. Database & Server Infrastructure Initialization
-Navigate into your backend solution directory to execute framework entity updates and start the listener routing services:
-
-```bash
-
 cd ZaeemDistributeSystem
-
-```
-# Construct database structures via migration tracking blocks
-```bash
-dotnet ef database update --project ZaeemDistribute.Api
-```
-# Start the local API server process
-```bash
 dotnet run --project ZaeemDistribute.Api
 ```
+On startup the API creates the `ZaeemDistribute` database if it doesn't exist, applies all EF Core migrations, and seeds sample companies, products and rentals. It listens on http://localhost:5234 (interactive API docs at http://localhost:5234/scalar).
 
-The server framework activates listening tunnels on your local development endpoints (http://localhost:5000).
+The default connection string in `ZaeemDistribute.Api/appsettings.json` targets a default SQL Server instance on `localhost` with Windows authentication. If your server is different, override it without editing the file:
+```bash
+# SQL Server Express
+dotnet run --project ZaeemDistribute.Api -- --ConnectionStrings:DefaultConnection="Server=localhost\SQLEXPRESS;Database=ZaeemDistribute;Trusted_Connection=True;TrustServerCertificate=True;"
+# LocalDB
+dotnet run --project ZaeemDistribute.Api -- --ConnectionStrings:DefaultConnection="Server=(localdb)\MSSQLLocalDB;Database=ZaeemDistribute;Trusted_Connection=True;"
+```
 
-2. Frontend User Interface Initialization
-Open a new separate terminal instance at the workspace root folder to load node dependencies and launch the local compilation server:
+### 2. Start the frontend
+```bash
+cd zaeem-distribute-ui
+npm install
+npm start
+```
+Open http://localhost:4200.
+
+---
+
+## Deploying the GitHub Pages Demo
 
 ```bash
 cd zaeem-distribute-ui
+npm run deploy
 ```
-# Install the necessary npm packages
-```bash
-npm install
-```
-# Start the local Angular web server
-```bash
-npm start
-```
-Open your browser framework and target http://localhost:4200 to execute tasks within the live application UI.
+This builds the `prod-demo` configuration with the `/Zaeem-Logistics-Hub/` base path and publishes `dist/zaeem-distribute-ui/browser` to the `gh-pages` branch. Don't deploy a `production` build to GitHub Pages: it expects the API on `localhost` and has no demo data.
