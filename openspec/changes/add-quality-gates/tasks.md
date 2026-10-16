@@ -28,11 +28,11 @@
 
 ## 4. End-to-end tests
 
-- [ ] 4.1 Add `@playwright/test`, `playwright.config.ts` (Chromium; demo target on port 4300 by default; `E2E_TARGET=fullstack` on 4200, guarded by `E2E_ALLOW_FULLSTACK=1`; CI retries with traces on the first retry), the `demo` serve configuration, and `npm run e2e`; verify `npm run e2e` starts the demo server and runs a smoke test that opens the dashboard
-- [ ] 4.2 Write the place-order test (new per-run plate, dates a few days out; checks the confirmation amount, the schedule bar and the ledger balance delta) and the booking-conflict test; verify both pass in demo mode three runs in a row
-- [ ] 4.3 Write the keyboard-only record-payment test (confirmation dialog, focus on the receipt, receipt first in history, ledger balance delta) and the overpayment-blocked test; verify both pass in demo mode three runs in a row
-- [ ] 4.4 Run the suite in full-stack mode against the API on a scratch database, twice in a row; verify both runs pass and the developer's `ZaeemDistribute` database is untouched, then drop the scratch database
-- [ ] 4.5 Document both end-to-end modes, including the scratch-database API command and the guard variable, in the frontend README; verify the documented commands run as written
+- [x] 4.1 Add `@playwright/test`, `playwright.config.ts` (Chromium; demo target on port 4300 by default; `E2E_TARGET=fullstack` on 4200, guarded by `E2E_ALLOW_FULLSTACK=1`; CI retries with traces on the first retry), the `demo` serve configuration, and `npm run e2e`; verify `npm run e2e` starts the demo server and runs a smoke test that opens the dashboard
+- [x] 4.2 Write the place-order test (new per-run plate, dates a few days out; checks the confirmation amount, the schedule bar and the ledger balance delta) and the booking-conflict test; verify both pass in demo mode three runs in a row
+- [x] 4.3 Write the keyboard-only record-payment test (confirmation dialog, focus on the receipt, receipt first in history, ledger balance delta) and the overpayment-blocked test; verify both pass in demo mode three runs in a row
+- [x] 4.4 Run the suite in full-stack mode against the API on a scratch database, twice in a row; verify both runs pass and the developer's `ZaeemDistribute` database is untouched, then drop the scratch database
+- [x] 4.5 Document both end-to-end modes, including the scratch-database API command and the guard variable, in the frontend README; verify the documented commands run as written
 
 ## 5. Continuous integration
 
