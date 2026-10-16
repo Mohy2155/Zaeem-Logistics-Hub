@@ -1,7 +1,19 @@
-import { HttpInterceptorFn, HttpResponse } from '@angular/common/http';
-import { of } from 'rxjs';
-import { delay } from 'rxjs/operators';
+import { HttpErrorResponse, HttpInterceptorFn, HttpResponse } from '@angular/common/http';
+import { of, throwError, timer } from 'rxjs';
+import { delay, mergeMap } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
+import { Booking, findBookingConflict, normalizePlate, rentalDays } from './rental-dates';
+
+/** Fails the request the way the real API would, after the same simulated latency. */
+const mockError = (status: number, message: string) =>
+  timer(600).pipe(mergeMap(() => throwError(() => new HttpErrorResponse({ status, error: { message } }))));
+
+/** Persistent sequential id, so mock ids never collide the way random ones did. */
+const nextId = (key: string, start: number): number => {
+  const id = Number(localStorage.getItem(key)) || start;
+  localStorage.setItem(key, (id + 1).toString());
+  return id;
+};
 
 /**
  * Initialize localStorage helper
@@ -20,7 +32,7 @@ const initLocalStorage = () => {
 
   if (!localStorage.getItem('zaeem_rentals')) {
     const defaultRentals = [
-      { rentalItemId: 101, machineId: 101, machineName: 'Excavator X3000', companyName: 'Build-It Corp', plateNumber: 'DX-7728', startDate: new Date(Date.now() - 2*24*60*60*1000).toISOString(), endDate: new Date(Date.now() + 5*24*60*60*1000).toISOString(), dailyRate: 450, discount: 10, totalAmount: 2025, status: 'Active' },
+      { rentalItemId: 101, machineId: 101, machineName: 'Excavator X3000', companyName: 'Build-It Corp', plateNumber: 'DX-7728', startDate: new Date(Date.now() - 2*24*60*60*1000).toISOString(), endDate: new Date(Date.now() + 5*24*60*60*1000).toISOString(), dailyRate: 450, discount: 10, totalAmount: 2835, status: 'Active' },
       { rentalItemId: 102, machineId: 102, machineName: 'Caterpillar Loader', companyName: 'Swift Logistics', plateNumber: 'PL-4491', startDate: new Date(Date.now() - 1*24*60*60*1000).toISOString(), endDate: new Date(Date.now() + 6*24*60*60*1000).toISOString(), dailyRate: 320, discount: 15, totalAmount: 1904, status: 'Active' }
     ];
     localStorage.setItem('zaeem_rentals', JSON.stringify(defaultRentals));
@@ -84,101 +96,80 @@ export const mockApiInterceptor: HttpInterceptorFn = (req, next) => {
     } else if (url.includes('orders/rentals') && req.method === 'GET') {
       mockBody = safeJsonParse('zaeem_rentals', []);
     } else if (url.includes('place-bulk-order')) {
+      // Mirrors OrdersController.PlaceBulkOrder: double-booking check, then bill from the line items
       const payload: any = req.body || {};
+      const items: any[] = Array.isArray(payload.items) ? payload.items : [];
       const companies = safeJsonParse('zaeem_companies', []);
       const company = companies.find((c: any) => c.companyId === Number(payload.companyId));
-      if (company) {
-        company.outstandingBalance += payload.orderTotal;
-        company.totalBilledToDate += payload.orderTotal;
-        localStorage.setItem('zaeem_companies', JSON.stringify(companies));
+      if (!company) return mockError(404, 'Company not found.');
+      if (items.length === 0) return mockError(400, 'Order must contain at least one item.');
 
-        // Add items to rentals
-        if (Array.isArray(payload.items) && payload.items.length > 0) {
-          const rentals = safeJsonParse('zaeem_rentals', []);
-          const newRentals = payload.items.map((item: any) => ({
-            rentalItemId: Math.floor(Math.random() * 10000) + 1000,
-            machineId: item?.machineId,
-            machineName: item?.machineName,
-            companyName: company.companyName,
-            plateNumber: item?.plateNumber || 'DX-' + Math.floor(Math.random() * 9000 + 1000),
-            startDate: item?.startDate,
-            endDate: item?.endDate,
-            dailyRate: item?.dailyRate || 0,
-            discount: item?.discount || 0,
-            totalAmount: item?.lineTotal || 0,
-            status: 'Active',
-            taxType: item?.taxType || 'VAT',
-            taxPercent: item?.taxPercent !== undefined ? item.taxPercent : (item?.taxRate || 0)
-          }));
-          localStorage.setItem('zaeem_rentals', JSON.stringify([...rentals, ...newRentals]));
+      const rentals = safeJsonParse('zaeem_rentals', []);
+      const booked: Booking[] = [...rentals];
+      for (const item of items) {
+        if (rentalDays(item.startDate, item.endDate) <= 0) {
+          return mockError(400, `End date must be after start date for plate ${normalizePlate(item.plateNumber)}.`);
         }
+        if (findBookingConflict(item, booked)) {
+          return mockError(409, `Scheduling conflict: plate ${normalizePlate(item.plateNumber)} is already booked during ${item.startDate} to ${item.endDate}.`);
+        }
+        booked.push(item);
       }
-      
-      let seq = Number(localStorage.getItem('zaeem_invoice_seq')) || 1;
-      const formattedSeq = seq.toString().padStart(3, '0');
-      const newInvoiceId = `INV-${formattedSeq}`;
-      localStorage.setItem('zaeem_invoice_seq', (seq + 1).toString());
-      
-      mockBody = { result: 'SUCCESS', orderId: Math.floor(Math.random() * 10000), invoiceId: newInvoiceId };
+
+      const orderTotal = items.reduce((sum, item) => sum + (item.lineTotal || 0), 0);
+      company.outstandingBalance += orderTotal;
+      company.totalBilledToDate += orderTotal;
+      localStorage.setItem('zaeem_companies', JSON.stringify(companies));
+
+      const orderId = nextId('zaeem_order_seq', 1);
+      let rentalId = Math.max(1000, ...rentals.map((r: any) => Number(r.rentalItemId) || 0));
+      const newRentals = items.map((item: any) => ({
+        rentalItemId: ++rentalId,
+        bulkOrderId: orderId,
+        machineId: item.machineId,
+        machineName: item.machineName,
+        companyName: company.companyName,
+        plateNumber: normalizePlate(item.plateNumber),
+        startDate: item.startDate,
+        endDate: item.endDate,
+        dailyRate: item.dailyRate || 0,
+        discount: item.discount || 0,
+        totalAmount: item.lineTotal || 0,
+        status: 'Active',
+        taxType: item.taxType || 'VAT',
+        taxPercent: item.taxPercent || 0
+      }));
+      localStorage.setItem('zaeem_rentals', JSON.stringify([...rentals, ...newRentals]));
+
+      mockBody = { result: 'SUCCESS', orderId, amountBilled: orderTotal, outstandingBalance: company.outstandingBalance };
     } else if (url.includes('payments/record')) {
+      // Mirrors CompaniesController.RecordPayment validation
       const payload: any = req.body || {};
+      const amount = Number(payload.amount);
       const companies = safeJsonParse('zaeem_companies', []);
       const company = companies.find((c: any) => c.companyId === Number(payload.companyId));
-      if (company) {
-        company.outstandingBalance = Math.max(0, company.outstandingBalance - payload.amount);
-        localStorage.setItem('zaeem_companies', JSON.stringify(companies));
-
-        const receipts = safeJsonParse('zaeem_receipts', []);
-        const receipt = {
-          receiptId: 'REC-' + (Math.floor(Math.random() * 9000) + 1000),
-          companyId: company.companyId,
-          companyName: company.companyName,
-          amount: payload.amount,
-          paymentDate: new Date().toISOString()
-        };
-        receipts.unshift(receipt);
-        localStorage.setItem('zaeem_receipts', JSON.stringify(receipts));
-        mockBody = { result: 'SUCCESS', receiptId: receipt.receiptId };
-      } else {
-        mockBody = { result: 'SUCCESS', receiptId: 'REC-' + Math.floor(Math.random() * 1000) };
+      if (!(amount > 0)) return mockError(400, 'Payment amount must be greater than zero.');
+      if (!company) return mockError(404, 'Company not found.');
+      if (amount > company.outstandingBalance) {
+        return mockError(400, `Payment exceeds the outstanding balance of ${company.outstandingBalance.toFixed(2)}.`);
       }
+
+      company.outstandingBalance -= amount;
+      localStorage.setItem('zaeem_companies', JSON.stringify(companies));
+
+      const receipts = safeJsonParse('zaeem_receipts', []);
+      const receipt = {
+        receiptId: 'REC-' + nextId('zaeem_receipt_seq', 1003),
+        companyId: company.companyId,
+        companyName: company.companyName,
+        amount,
+        paymentDate: new Date().toISOString()
+      };
+      receipts.unshift(receipt);
+      localStorage.setItem('zaeem_receipts', JSON.stringify(receipts));
+      mockBody = { result: 'SUCCESS', receiptId: receipt.receiptId };
     } else if (url.includes('payments/receipts') && req.method === 'GET') {
       mockBody = safeJsonParse('zaeem_receipts', []);
-    } else if (url.includes('orders/rentals') && req.method === 'DELETE') {
-      const parts = url.split('/');
-      const rentalItemId = parts[parts.length - 1];
-      
-      const rentals = safeJsonParse('zaeem_rentals', []);
-      const rentalIndex = rentals.findIndex((r: any) => r.rentalItemId?.toString() === rentalItemId || r.id?.toString() === rentalItemId);
-      
-      if (rentalIndex !== -1) {
-        const rental = rentals[rentalIndex];
-        
-        // Remove from list
-        rentals.splice(rentalIndex, 1);
-        localStorage.setItem('zaeem_rentals', JSON.stringify(rentals));
-
-        // Deduct order total from the company outstanding balance
-        const companies = safeJsonParse('zaeem_companies', []);
-        const company = companies.find((c: any) => c.companyName === rental.companyName);
-        if (company) {
-          company.outstandingBalance = Math.max(0, company.outstandingBalance - rental.totalAmount);
-          localStorage.setItem('zaeem_companies', JSON.stringify(companies));
-        }
-      }
-      mockBody = { message: 'Rental item cancelled and removed successfully' };
-    } else if (url.includes('/orders/cancel/')) {
-      // Fetch associated rental to modify state
-      const parts = url.split('/');
-      const orderId = parts[parts.length - 1];
-      // Optional: find and cancel the rental in mock store
-      const rentals = safeJsonParse('zaeem_rentals', []);
-      const rentalIndex = rentals.findIndex((r: any) => r.orderId?.toString() === orderId || r.rentalItemId?.toString() === orderId);
-      if (rentalIndex !== -1) {
-        rentals[rentalIndex].status = 'Cancelled';
-        localStorage.setItem('zaeem_rentals', JSON.stringify(rentals));
-      }
-      mockBody = { message: 'Order cancelled successfully' };
     } else {
       mockBody = { result: 'SUCCESS', status: 200 };
     }

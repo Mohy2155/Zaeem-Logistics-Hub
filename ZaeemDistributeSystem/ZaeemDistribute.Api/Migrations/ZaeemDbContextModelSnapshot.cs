@@ -159,6 +159,9 @@ namespace ZaeemDistribute.Api.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RentalItemId"));
 
+                    b.Property<int?>("BulkOrderId")
+                        .HasColumnType("int");
+
                     b.Property<string>("CompanyName")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");

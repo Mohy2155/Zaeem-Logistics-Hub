@@ -32,7 +32,10 @@ namespace ZaeemDistribute.Api.Controllers
                     CompanyId = c.CompanyId,
                     CompanyName = c.CompanyName,
                     OutstandingBalance = c.OutstandingBalance,
-                    DefaultDiscount = c.DefaultDiscount
+                    DefaultDiscount = c.DefaultDiscount,
+                    TotalBilledToDate = _context.RentalItems
+                        .Where(r => r.CompanyName == c.CompanyName && r.Status != "Cancelled")
+                        .Sum(r => (decimal?)r.TotalAmount) ?? 0
                 })
                 .ToListAsync();
 
@@ -44,6 +47,11 @@ namespace ZaeemDistribute.Api.Controllers
         [HttpPost("/api/payments/record")]
         public async Task<IActionResult> RecordPayment([FromBody] PaymentRequestDto request)
         {
+            if (request.Amount <= 0)
+            {
+                return BadRequest(new { message = "Payment amount must be greater than zero." });
+            }
+
             // 1. Fetch the target company from the database
             var company = await _context.Companies
                 .FirstOrDefaultAsync(c => c.CompanyId == request.CompanyId);
@@ -51,6 +59,11 @@ namespace ZaeemDistribute.Api.Controllers
             if (company == null)
             {
                 return NotFound(new { message = "Company not found." });
+            }
+
+            if (request.Amount > company.OutstandingBalance)
+            {
+                return BadRequest(new { message = $"Payment exceeds the outstanding balance of {company.OutstandingBalance:0.00}." });
             }
 
             // 2. Deduct the payment amount from the outstanding balance
