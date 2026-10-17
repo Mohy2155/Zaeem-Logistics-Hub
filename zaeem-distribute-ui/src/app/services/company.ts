@@ -106,12 +106,9 @@ export class CompanyService {
 
   /** Fetches clients and the total receivable; errors reach the subscriber (for loading/error views). */
   loadCompanies(): Observable<CompaniesSnapshot> {
-    return this.http.get<any>(this.companiesUrl).pipe(
+    return this.http.get<CompanyResponseDto[] | null>(this.companiesUrl).pipe(
       map((data): CompaniesSnapshot => {
-        if (data && data.items) {
-          return { companies: data.items, totalOutstanding: data.totalSystemOutstanding || 0 };
-        }
-        const companies: CompanyResponseDto[] = data ?? [];
+        const companies = data ?? [];
         return { companies, totalOutstanding: companies.reduce((acc, curr) => acc + (curr.outstandingBalance || 0), 0) };
       }),
       tap(snapshot => {

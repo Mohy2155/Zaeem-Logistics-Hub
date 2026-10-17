@@ -84,6 +84,15 @@ See proposal.md for motivation. The current state that shapes the approach:
 | Line totals | rounded to cents before summing | not rounded | rounded the same way (`Math.round(x * 100) / 100`; see Risks for halves) |
 | `DELETE /api/orders/rentals/{id}`, `POST /api/orders/cancel/{id}` | implemented | fall through to a generic success | implemented with the API's rules |
 
+Found by the contract cases during implementation, and fixed the same way:
+
+| Area | API today | Mock today | After |
+|------|-----------|------------|-------|
+| Receipt history order | newest first by payment date | storage order | sorted newest first |
+| Inactive clients | left out of the client list | no active flag | `isActive: false` clients left out |
+| Rental dates | `yyyy-MM-ddT00:00:00` | stored as sent (`yyyy-MM-dd`), seed rentals as UTC ISO strings | stored as `yyyy-MM-ddT00:00:00` |
+| Unknown API route | 404 | generic success | 404 |
+
 **Intentional differences**, recorded next to the cases and excluded from comparison:
 - **Receipt numbering:** both use `REC-<number>`, but the sequences differ. Cases check only the pattern.
 - **Payment timestamps:** the mock writes ISO strings with `Z`; the API writes no zone. The frontend already parses both, and the UTC cleanup is out of scope.
@@ -91,7 +100,7 @@ See proposal.md for motivation. The current state that shapes the approach:
 ### D7. Playwright runs against `ng serve`, with the target chosen by an environment variable
 - **Location:** `zaeem-distribute-ui/playwright.config.ts`, tests in `zaeem-distribute-ui/e2e/`, Chromium only.
 - **Demo mode (the default):**
-  - A new `demo` serve configuration (build target `prod-demo`, base href `/`) on port 4300, started by Playwright's `webServer`.
+  - A new `demo` serve configuration (build target `prod-demo`) on port 4300, started by Playwright's `webServer`. It keeps the build's GitHub Pages base path (`/Zaeem-Logistics-Hub/`), so the tests exercise the app exactly as deployed. The dev server cannot override the base href anyway.
   - Every test gets a new browser context, so `localStorage` is empty and the mock re-seeds.
 - **Full stack (`E2E_TARGET=fullstack`):**
   - Base URL `http://localhost:4200`, with `webServer` running `ng serve` (reusing one already running).

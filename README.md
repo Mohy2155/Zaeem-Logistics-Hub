@@ -1,5 +1,7 @@
 # Zaeem-Logistics-Hub: Full-Stack Fleet Workspace
 
+[![CI](https://github.com/Mohy2155/Zaeem-Logistics-Hub/actions/workflows/ci.yml/badge.svg)](https://github.com/Mohy2155/Zaeem-Logistics-Hub/actions/workflows/ci.yml)
+
 Zaeem Distribute is a full-stack commercial equipment rental and logistics management system designed for the heavy construction industry. The application enables B2B clients and equipment suppliers to manage machinery dispatch, calculate tiered rental rates (factoring in, optionally, any discounts and regional VAT), track equipment availability using unique asset identifiers, and process bulk orders with sequential invoicing.
 
 ##  Live Production Demo
@@ -16,8 +18,10 @@ The frontend client interface is compiled and deployed live. You can interact wi
 Zaeem-Logistics-Hub/
 ├── README.md                 <-- System Overview & Developer Guide
 ├── Project Methodology       <-- Functional Specifications Document
+├── contracts/                <-- API contract cases, run against the API and the demo mock
 ├── ZaeemDistributeSystem/    <-- Backend Server Application (.NET 9)
-│   └── ZaeemDistribute.Api/  <-- Controllers, Models, DTOs and EF Core Migrations
+│   ├── ZaeemDistribute.Api/  <-- Controllers, Models, DTOs and EF Core Migrations
+│   └── ZaeemDistribute.Api.Tests/  <-- xUnit tests for the API's business rules
 └── zaeem-distribute-ui/      <-- Frontend Client Dashboard (Angular)
     ├── src/                  <-- Reactive View Layers, Forms, and State Routers
     ├── angular.json          <-- Workspace Build Pipelines
@@ -121,6 +125,44 @@ npm install
 npm start
 ```
 Open http://localhost:4200.
+
+### 3. Run the API tests
+```bash
+cd ZaeemDistributeSystem
+dotnet test
+```
+The tests host the API in memory and call it over HTTP. They cover order validation, double-booking, billing, payments and cancellations. Each run creates its own `ZaeemDistribute_Test_<random>` database on your SQL Server and drops it at the end, so the `ZaeemDistribute` database is never read or written. The tests refuse to reset any database whose name lacks `_Test_`.
+
+They use the same local SQL Server as the API (`localhost`, Windows authentication). For another server, set `ZAEEM_TEST_SQL` to a connection string without a database name:
+```bash
+# SQL Server Express (bash; in PowerShell use $env:ZAEEM_TEST_SQL = "...")
+ZAEEM_TEST_SQL="Server=localhost\SQLEXPRESS;Trusted_Connection=True;TrustServerCertificate=True;" dotnet test
+# SQL login, e.g. a Docker container
+ZAEEM_TEST_SQL="Server=localhost,1433;User Id=sa;Password=<password>;TrustServerCertificate=True;" dotnet test
+```
+The API's startup seed data can be switched off with `--Seed:Enabled=false`; the tests do this so each test starts from an empty database.
+
+A run that is killed partway, for example with Ctrl+C or by stopping the debugger, can't drop its database. To remove every leftover test database (names matching `ZaeemDistribute_Test_*` only; `ZaeemDistribute` is never touched):
+```bash
+sqlcmd -S localhost -E -C -Q "DECLARE @sql nvarchar(max) = N''; SELECT @sql += N'ALTER DATABASE ' + QUOTENAME(name) + N' SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE ' + QUOTENAME(name) + N'; ' FROM sys.databases WHERE name LIKE N'ZaeemDistribute[_]Test[_]%'; EXEC (@sql);"
+```
+Don't run it while a test run is in progress.
+
+---
+
+## Checks
+
+Every push to `main`, every pull request into it, and manual runs start [`.github/workflows/ci.yml`](.github/workflows/ci.yml). It runs three independent jobs, each reported as its own check:
+
+| Check | What it runs | Run it locally |
+|-------|--------------|----------------|
+| `frontend` | Unit tests (including the API contract cases against the demo mock), production build, demo build, WCAG contrast check | `npm test`, `npm run build`, `npm run build:demo`, `npm run check:contrast` in `zaeem-distribute-ui/` |
+| `backend` | API build and tests (business rules and contract cases) against SQL Server 2022 in a throwaway container | `dotnet test` in `ZaeemDistributeSystem/` (see [Run the API tests](#3-run-the-api-tests)) |
+| `e2e` | Playwright end-to-end tests against the demo build; traces and screenshots are kept as a run artifact when a test fails | `npm run e2e` in `zaeem-distribute-ui/` (see its [README](zaeem-distribute-ui/README.md#end-to-end-tests)) |
+
+A newer push cancels the checks still running for the same branch. The workflow can only read the repository: it never deploys or pushes, so the GitHub Pages demo changes only when someone runs `npm run deploy`.
+
+The demo and the API share one set of contract cases ([`contracts/`](contracts/README.md)), so a change to either side that breaks parity fails a check.
 
 ---
 
