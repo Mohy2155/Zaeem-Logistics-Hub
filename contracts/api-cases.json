@@ -40,7 +40,7 @@
       }
     },
     {
-      "name": "order: bills the line totals rounded to cents and books every line",
+      "name": "order: prices every line on the server, bills the sum and books every line",
       "given": { "clients": [{ "id": 1, "name": "Build-It Corp", "balance": 1000 }] },
       "request": {
         "method": "POST",
@@ -48,20 +48,53 @@
         "body": {
           "companyId": 1,
           "items": [
-            { "machineId": 101, "machineName": "Excavator X3000", "plateNumber": " fs-101 ", "startDate": "2030-11-01", "endDate": "2030-11-03", "dailyRate": 450, "discount": 10, "taxPercent": 5, "taxType": "VAT", "lineTotal": 1350.004 },
-            { "machineId": 103, "machineName": "Tower Crane T1", "plateNumber": "FS-102", "startDate": "2030-11-02", "endDate": "2030-11-04", "dailyRate": 250, "discount": 0, "taxPercent": 0, "taxType": "VAT", "lineTotal": 500 }
+            { "machineId": 101, "machineName": "Excavator X3000", "plateNumber": " fs-101 ", "startDate": "2030-11-01", "endDate": "2030-11-08", "dailyRate": 450, "discount": 10, "taxPercent": 0, "taxType": "VAT" },
+            { "machineId": 103, "machineName": "Tower Crane T1", "plateNumber": "FS-102", "startDate": "2030-11-02", "endDate": "2030-11-04", "dailyRate": 250, "discount": 0, "taxPercent": 0, "taxType": "VAT" }
           ]
         }
       },
       "expect": {
         "status": 200,
-        "body": { "orderId": { "$matches": "^\\d+$" }, "result": "SUCCESS", "amountBilled": 1850, "outstandingBalance": 2850 },
-        "balances": { "Build-It Corp": 2850 },
+        "body": {
+          "orderId": { "$matches": "^\\d+$" }, "result": "SUCCESS", "amountBilled": 3335, "outstandingBalance": 4335,
+          "lines": [{ "plateNumber": "FS-101", "amount": 2835 }, { "plateNumber": "FS-102", "amount": 500 }]
+        },
+        "balances": { "Build-It Corp": 4335 },
         "rentalStatuses": { "FS-101": "Active", "FS-102": "Active" },
         "rentalsAfter": [
-          { "machineId": 101, "machineName": "Excavator X3000", "companyName": "Build-It Corp", "plateNumber": "FS-101", "startDate": "2030-11-01T00:00:00", "endDate": "2030-11-03T00:00:00", "dailyRate": 450, "discount": 10, "taxPercent": 5, "taxType": "VAT", "totalAmount": 1350, "status": "Active" },
+          { "machineId": 101, "machineName": "Excavator X3000", "companyName": "Build-It Corp", "plateNumber": "FS-101", "startDate": "2030-11-01T00:00:00", "endDate": "2030-11-08T00:00:00", "dailyRate": 450, "discount": 10, "taxPercent": 0, "taxType": "VAT", "totalAmount": 2835, "status": "Active" },
           { "machineId": 103, "machineName": "Tower Crane T1", "plateNumber": "FS-102", "startDate": "2030-11-02T00:00:00", "endDate": "2030-11-04T00:00:00", "totalAmount": 500, "status": "Active" }
         ]
+      }
+    },
+    {
+      "name": "order: a line total sent by the caller is ignored",
+      "given": { "clients": [{ "id": 1, "name": "Build-It Corp", "balance": 1000 }] },
+      "request": {
+        "method": "POST",
+        "path": "/api/orders/place-bulk-order",
+        "body": { "companyId": 1, "items": [{ "machineId": 101, "machineName": "Excavator X3000", "plateNumber": "DX-7728", "startDate": "2030-11-01", "endDate": "2030-11-08", "dailyRate": 450, "discount": 10, "taxPercent": 0, "taxType": "VAT", "lineTotal": 1 }] }
+      },
+      "expect": {
+        "status": 200,
+        "body": { "result": "SUCCESS", "amountBilled": 2835, "outstandingBalance": 3835, "lines": [{ "plateNumber": "DX-7728", "amount": 2835 }] },
+        "balances": { "Build-It Corp": 3835 },
+        "rentalsAfter": [{ "plateNumber": "DX-7728", "totalAmount": 2835 }]
+      }
+    },
+    {
+      "name": "order: the discount comes off before tax is added",
+      "given": { "clients": [{ "id": 1, "name": "Build-It Corp", "balance": 0 }] },
+      "request": {
+        "method": "POST",
+        "path": "/api/orders/place-bulk-order",
+        "body": { "companyId": 1, "items": [{ "machineId": 101, "machineName": "Excavator X3000", "plateNumber": "DX-1", "startDate": "2030-11-01", "endDate": "2030-11-04", "dailyRate": 100, "discount": 10, "taxPercent": 5, "taxType": "VAT" }] }
+      },
+      "expect": {
+        "status": 200,
+        "body": { "result": "SUCCESS", "amountBilled": 283.5, "outstandingBalance": 283.5 },
+        "balances": { "Build-It Corp": 283.5 },
+        "rentalsAfter": [{ "plateNumber": "DX-1", "dailyRate": 100, "discount": 10, "taxPercent": 5, "totalAmount": 283.5 }]
       }
     },
     {
@@ -82,7 +115,7 @@
       "request": {
         "method": "POST",
         "path": "/api/orders/place-bulk-order",
-        "body": { "companyId": 1, "items": [{ "machineId": 101, "machineName": "Excavator X3000", "plateNumber": "   ", "startDate": "2030-11-01", "endDate": "2030-11-03", "dailyRate": 450, "discount": 0, "taxPercent": 0, "taxType": "VAT", "lineTotal": 900 }] }
+        "body": { "companyId": 1, "items": [{ "machineId": 101, "machineName": "Excavator X3000", "plateNumber": "   ", "startDate": "2030-11-01", "endDate": "2030-11-03", "dailyRate": 450, "discount": 0, "taxPercent": 0, "taxType": "VAT" }] }
       },
       "expect": { "status": 400, "message": "Plate number is required for Excavator X3000.", "balances": { "Build-It Corp": 1000 }, "rentalCount": 0 }
     },
@@ -92,7 +125,7 @@
       "request": {
         "method": "POST",
         "path": "/api/orders/place-bulk-order",
-        "body": { "companyId": 1, "items": [{ "machineId": 101, "machineName": "Excavator X3000", "plateNumber": "dx-1", "startDate": "not-a-date", "endDate": "2030-11-03", "dailyRate": 450, "discount": 0, "taxPercent": 0, "taxType": "VAT", "lineTotal": 900 }] }
+        "body": { "companyId": 1, "items": [{ "machineId": 101, "machineName": "Excavator X3000", "plateNumber": "dx-1", "startDate": "not-a-date", "endDate": "2030-11-03", "dailyRate": 450, "discount": 0, "taxPercent": 0, "taxType": "VAT" }] }
       },
       "expect": { "status": 400, "message": "Invalid rental dates for plate DX-1.", "balances": { "Build-It Corp": 1000 }, "rentalCount": 0 }
     },
@@ -102,7 +135,7 @@
       "request": {
         "method": "POST",
         "path": "/api/orders/place-bulk-order",
-        "body": { "companyId": 1, "items": [{ "machineId": 101, "machineName": "Excavator X3000", "plateNumber": "DX-1", "startDate": "2030-11-01", "endDate": "", "dailyRate": 450, "discount": 0, "taxPercent": 0, "taxType": "VAT", "lineTotal": 900 }] }
+        "body": { "companyId": 1, "items": [{ "machineId": 101, "machineName": "Excavator X3000", "plateNumber": "DX-1", "startDate": "2030-11-01", "endDate": "", "dailyRate": 450, "discount": 0, "taxPercent": 0, "taxType": "VAT" }] }
       },
       "expect": { "status": 400, "message": "Invalid rental dates for plate DX-1.", "rentalCount": 0 }
     },
@@ -112,7 +145,7 @@
       "request": {
         "method": "POST",
         "path": "/api/orders/place-bulk-order",
-        "body": { "companyId": 1, "items": [{ "machineId": 101, "machineName": "Excavator X3000", "plateNumber": "DX-1", "startDate": "2030-11-10", "endDate": "2030-11-10", "dailyRate": 450, "discount": 0, "taxPercent": 0, "taxType": "VAT", "lineTotal": 900 }] }
+        "body": { "companyId": 1, "items": [{ "machineId": 101, "machineName": "Excavator X3000", "plateNumber": "DX-1", "startDate": "2030-11-10", "endDate": "2030-11-10", "dailyRate": 450, "discount": 0, "taxPercent": 0, "taxType": "VAT" }] }
       },
       "expect": { "status": 400, "message": "End date must be after start date for plate DX-1.", "balances": { "Build-It Corp": 1000 }, "rentalCount": 0 }
     },
@@ -122,17 +155,37 @@
       "request": {
         "method": "POST",
         "path": "/api/orders/place-bulk-order",
-        "body": { "companyId": 1, "items": [{ "machineId": 101, "machineName": "Excavator X3000", "plateNumber": "DX-1", "startDate": "2030-11-10", "endDate": "2030-11-09", "dailyRate": 450, "discount": 0, "taxPercent": 0, "taxType": "VAT", "lineTotal": 900 }] }
+        "body": { "companyId": 1, "items": [{ "machineId": 101, "machineName": "Excavator X3000", "plateNumber": "DX-1", "startDate": "2030-11-10", "endDate": "2030-11-09", "dailyRate": 450, "discount": 0, "taxPercent": 0, "taxType": "VAT" }] }
       },
       "expect": { "status": 400, "message": "End date must be after start date for plate DX-1.", "rentalCount": 0 }
     },
     {
-      "name": "order: a negative line total is refused",
+      "name": "order: a negative daily rate is refused",
       "given": { "clients": [{ "id": 1, "name": "Build-It Corp", "balance": 1000 }] },
       "request": {
         "method": "POST",
         "path": "/api/orders/place-bulk-order",
-        "body": { "companyId": 1, "items": [{ "machineId": 101, "machineName": "Excavator X3000", "plateNumber": "DX-1", "startDate": "2030-11-01", "endDate": "2030-11-03", "dailyRate": 450, "discount": 0, "taxPercent": 0, "taxType": "VAT", "lineTotal": -1 }] }
+        "body": { "companyId": 1, "items": [{ "machineId": 101, "machineName": "Excavator X3000", "plateNumber": "DX-1", "startDate": "2030-11-01", "endDate": "2030-11-03", "dailyRate": -450, "discount": 0, "taxPercent": 0, "taxType": "VAT" }] }
+      },
+      "expect": { "status": 400, "message": "Invalid pricing for plate DX-1.", "balances": { "Build-It Corp": 1000 }, "rentalCount": 0 }
+    },
+    {
+      "name": "order: a zero daily rate is refused (a free rental is a 100% discount)",
+      "given": { "clients": [{ "id": 1, "name": "Build-It Corp", "balance": 1000 }] },
+      "request": {
+        "method": "POST",
+        "path": "/api/orders/place-bulk-order",
+        "body": { "companyId": 1, "items": [{ "machineId": 101, "machineName": "Excavator X3000", "plateNumber": "DX-1", "startDate": "2030-11-01", "endDate": "2030-11-03", "dailyRate": 0, "discount": 0, "taxPercent": 0, "taxType": "VAT" }] }
+      },
+      "expect": { "status": 400, "message": "Invalid pricing for plate DX-1.", "balances": { "Build-It Corp": 1000 }, "rentalCount": 0 }
+    },
+    {
+      "name": "order: a missing daily rate is refused",
+      "given": { "clients": [{ "id": 1, "name": "Build-It Corp", "balance": 1000 }] },
+      "request": {
+        "method": "POST",
+        "path": "/api/orders/place-bulk-order",
+        "body": { "companyId": 1, "items": [{ "machineId": 101, "machineName": "Excavator X3000", "plateNumber": "DX-1", "startDate": "2030-11-01", "endDate": "2030-11-03", "discount": 0, "taxPercent": 0, "taxType": "VAT" }] }
       },
       "expect": { "status": 400, "message": "Invalid pricing for plate DX-1.", "balances": { "Build-It Corp": 1000 }, "rentalCount": 0 }
     },
@@ -142,7 +195,7 @@
       "request": {
         "method": "POST",
         "path": "/api/orders/place-bulk-order",
-        "body": { "companyId": 1, "items": [{ "machineId": 101, "machineName": "Excavator X3000", "plateNumber": "DX-1", "startDate": "2030-11-01", "endDate": "2030-11-03", "dailyRate": 450, "discount": -1, "taxPercent": 0, "taxType": "VAT", "lineTotal": 900 }] }
+        "body": { "companyId": 1, "items": [{ "machineId": 101, "machineName": "Excavator X3000", "plateNumber": "DX-1", "startDate": "2030-11-01", "endDate": "2030-11-03", "dailyRate": 450, "discount": -1, "taxPercent": 0, "taxType": "VAT" }] }
       },
       "expect": { "status": 400, "message": "Invalid pricing for plate DX-1.", "rentalCount": 0 }
     },
@@ -152,7 +205,7 @@
       "request": {
         "method": "POST",
         "path": "/api/orders/place-bulk-order",
-        "body": { "companyId": 1, "items": [{ "machineId": 101, "machineName": "Excavator X3000", "plateNumber": "DX-1", "startDate": "2030-11-01", "endDate": "2030-11-03", "dailyRate": 450, "discount": 100.01, "taxPercent": 0, "taxType": "VAT", "lineTotal": 900 }] }
+        "body": { "companyId": 1, "items": [{ "machineId": 101, "machineName": "Excavator X3000", "plateNumber": "DX-1", "startDate": "2030-11-01", "endDate": "2030-11-03", "dailyRate": 450, "discount": 100.01, "taxPercent": 0, "taxType": "VAT" }] }
       },
       "expect": { "status": 400, "message": "Invalid pricing for plate DX-1.", "rentalCount": 0 }
     },
@@ -162,7 +215,7 @@
       "request": {
         "method": "POST",
         "path": "/api/orders/place-bulk-order",
-        "body": { "companyId": 1, "items": [{ "machineId": 101, "machineName": "Excavator X3000", "plateNumber": "DX-1", "startDate": "2030-11-01", "endDate": "2030-11-03", "dailyRate": 450, "discount": 0, "taxPercent": -5, "taxType": "VAT", "lineTotal": 900 }] }
+        "body": { "companyId": 1, "items": [{ "machineId": 101, "machineName": "Excavator X3000", "plateNumber": "DX-1", "startDate": "2030-11-01", "endDate": "2030-11-03", "dailyRate": 450, "discount": 0, "taxPercent": -5, "taxType": "VAT" }] }
       },
       "expect": { "status": 400, "message": "Invalid pricing for plate DX-1.", "rentalCount": 0 }
     },
@@ -175,8 +228,8 @@
         "body": {
           "companyId": 1,
           "items": [
-            { "machineId": 101, "machineName": "Excavator X3000", "plateNumber": "DX-1", "startDate": "2030-11-01", "endDate": "2030-11-03", "dailyRate": 450, "discount": 0, "taxPercent": 0, "taxType": "VAT", "lineTotal": 900 },
-            { "machineId": 101, "machineName": "Excavator X3000", "plateNumber": "DX-2", "startDate": "2030-11-05", "endDate": "2030-11-04", "dailyRate": 450, "discount": 0, "taxPercent": 0, "taxType": "VAT", "lineTotal": 900 }
+            { "machineId": 101, "machineName": "Excavator X3000", "plateNumber": "DX-1", "startDate": "2030-11-01", "endDate": "2030-11-03", "dailyRate": 450, "discount": 0, "taxPercent": 0, "taxType": "VAT" },
+            { "machineId": 101, "machineName": "Excavator X3000", "plateNumber": "DX-2", "startDate": "2030-11-05", "endDate": "2030-11-04", "dailyRate": 450, "discount": 0, "taxPercent": 0, "taxType": "VAT" }
           ]
         }
       },
@@ -188,7 +241,7 @@
       "request": {
         "method": "POST",
         "path": "/api/orders/place-bulk-order",
-        "body": { "companyId": 999, "items": [{ "machineId": 101, "machineName": "Excavator X3000", "plateNumber": "DX-1", "startDate": "2030-11-05", "endDate": "2030-11-04", "dailyRate": 450, "discount": 0, "taxPercent": 0, "taxType": "VAT", "lineTotal": 900 }] }
+        "body": { "companyId": 999, "items": [{ "machineId": 101, "machineName": "Excavator X3000", "plateNumber": "DX-1", "startDate": "2030-11-05", "endDate": "2030-11-04", "dailyRate": 450, "discount": 0, "taxPercent": 0, "taxType": "VAT" }] }
       },
       "expect": { "status": 400, "message": "End date must be after start date for plate DX-1." }
     },
@@ -198,9 +251,19 @@
       "request": {
         "method": "POST",
         "path": "/api/orders/place-bulk-order",
-        "body": { "companyId": 999, "items": [{ "machineId": 101, "machineName": "Excavator X3000", "plateNumber": "DX-1", "startDate": "2030-11-01", "endDate": "2030-11-03", "dailyRate": 450, "discount": 0, "taxPercent": 0, "taxType": "VAT", "lineTotal": 900 }] }
+        "body": { "companyId": 999, "items": [{ "machineId": 101, "machineName": "Excavator X3000", "plateNumber": "DX-1", "startDate": "2030-11-01", "endDate": "2030-11-03", "dailyRate": 450, "discount": 0, "taxPercent": 0, "taxType": "VAT" }] }
       },
       "expect": { "status": 404, "message": "Company not found.", "balances": { "Build-It Corp": 1000 }, "rentalCount": 0 }
+    },
+    {
+      "name": "order: a deactivated client cannot be billed",
+      "given": { "clients": [{ "id": 2, "name": "Dormant Haulage", "balance": 1000, "active": false }] },
+      "request": {
+        "method": "POST",
+        "path": "/api/orders/place-bulk-order",
+        "body": { "companyId": 2, "items": [{ "machineId": 101, "machineName": "Excavator X3000", "plateNumber": "DX-1", "startDate": "2030-11-01", "endDate": "2030-11-03", "dailyRate": 450, "discount": 0, "taxPercent": 0, "taxType": "VAT" }] }
+      },
+      "expect": { "status": 409, "message": "Company is inactive and cannot be billed.", "balances": { "Dormant Haulage": 1000 }, "rentalCount": 0 }
     },
     {
       "name": "booking: starting on another booking's return day conflicts, whatever the plate's case and spacing",
@@ -211,7 +274,7 @@
       "request": {
         "method": "POST",
         "path": "/api/orders/place-bulk-order",
-        "body": { "companyId": 1, "items": [{ "machineId": 101, "machineName": "Excavator X3000", "plateNumber": " dx-7728 ", "startDate": "2030-11-05", "endDate": "2030-11-08", "dailyRate": 450, "discount": 0, "taxPercent": 0, "taxType": "VAT", "lineTotal": 1350 }] }
+        "body": { "companyId": 1, "items": [{ "machineId": 101, "machineName": "Excavator X3000", "plateNumber": " dx-7728 ", "startDate": "2030-11-05", "endDate": "2030-11-08", "dailyRate": 450, "discount": 0, "taxPercent": 0, "taxType": "VAT" }] }
       },
       "expect": {
         "status": 409,
@@ -229,7 +292,7 @@
       "request": {
         "method": "POST",
         "path": "/api/orders/place-bulk-order",
-        "body": { "companyId": 1, "items": [{ "machineId": 101, "machineName": "Excavator X3000", "plateNumber": "DX-7728", "startDate": "2030-10-28", "endDate": "2030-11-01", "dailyRate": 450, "discount": 0, "taxPercent": 0, "taxType": "VAT", "lineTotal": 1800 }] }
+        "body": { "companyId": 1, "items": [{ "machineId": 101, "machineName": "Excavator X3000", "plateNumber": "DX-7728", "startDate": "2030-10-28", "endDate": "2030-11-01", "dailyRate": 450, "discount": 0, "taxPercent": 0, "taxType": "VAT" }] }
       },
       "expect": { "status": 409, "messageStartsWith": "Scheduling conflict: plate DX-7728", "rentalCount": 1 }
     },
@@ -242,7 +305,7 @@
       "request": {
         "method": "POST",
         "path": "/api/orders/place-bulk-order",
-        "body": { "companyId": 1, "items": [{ "machineId": 101, "machineName": "Excavator X3000", "plateNumber": "DX-7728", "startDate": "2030-11-06", "endDate": "2030-11-08", "dailyRate": 450, "discount": 0, "taxPercent": 0, "taxType": "VAT", "lineTotal": 900 }] }
+        "body": { "companyId": 1, "items": [{ "machineId": 101, "machineName": "Excavator X3000", "plateNumber": "DX-7728", "startDate": "2030-11-06", "endDate": "2030-11-08", "dailyRate": 450, "discount": 0, "taxPercent": 0, "taxType": "VAT" }] }
       },
       "expect": { "status": 200, "body": { "result": "SUCCESS", "amountBilled": 900, "outstandingBalance": 1900 }, "balances": { "Build-It Corp": 1900 }, "rentalCount": 2 }
     },
@@ -255,8 +318,8 @@
         "body": {
           "companyId": 1,
           "items": [
-            { "machineId": 101, "machineName": "Excavator X3000", "plateNumber": "FS-101", "startDate": "2030-11-01", "endDate": "2030-11-03", "dailyRate": 450, "discount": 0, "taxPercent": 0, "taxType": "VAT", "lineTotal": 900 },
-            { "machineId": 101, "machineName": "Excavator X3000", "plateNumber": "fs-101", "startDate": "2030-11-03", "endDate": "2030-11-04", "dailyRate": 450, "discount": 0, "taxPercent": 0, "taxType": "VAT", "lineTotal": 450 }
+            { "machineId": 101, "machineName": "Excavator X3000", "plateNumber": "FS-101", "startDate": "2030-11-01", "endDate": "2030-11-03", "dailyRate": 450, "discount": 0, "taxPercent": 0, "taxType": "VAT" },
+            { "machineId": 101, "machineName": "Excavator X3000", "plateNumber": "fs-101", "startDate": "2030-11-03", "endDate": "2030-11-04", "dailyRate": 450, "discount": 0, "taxPercent": 0, "taxType": "VAT" }
           ]
         }
       },
@@ -276,7 +339,7 @@
       "request": {
         "method": "POST",
         "path": "/api/orders/place-bulk-order",
-        "body": { "companyId": 1, "items": [{ "machineId": 101, "machineName": "Excavator X3000", "plateNumber": "DX-7728", "startDate": "2030-11-01", "endDate": "2030-11-05", "dailyRate": 450, "discount": 0, "taxPercent": 0, "taxType": "VAT", "lineTotal": 1800 }] }
+        "body": { "companyId": 1, "items": [{ "machineId": 101, "machineName": "Excavator X3000", "plateNumber": "DX-7728", "startDate": "2030-11-01", "endDate": "2030-11-05", "dailyRate": 450, "discount": 0, "taxPercent": 0, "taxType": "VAT" }] }
       },
       "expect": { "status": 200, "body": { "result": "SUCCESS", "amountBilled": 1800 }, "balances": { "Build-It Corp": 2800 }, "rentalStatuses": { "DX-7728": ["Cancelled", "Active"] } }
     },
@@ -309,6 +372,30 @@
       "given": { "clients": [{ "id": 1, "name": "Build-It Corp", "balance": 12500 }] },
       "request": { "method": "POST", "path": "/api/payments/record", "body": { "companyId": 1, "amount": -25 } },
       "expect": { "status": 400, "message": "Payment amount must be greater than zero.", "balances": { "Build-It Corp": 12500 }, "receiptCount": 0 }
+    },
+    {
+      "name": "payment: a deactivated client can still settle the balance",
+      "given": { "clients": [{ "id": 2, "name": "Dormant Haulage", "balance": 500, "active": false }] },
+      "request": { "method": "POST", "path": "/api/payments/record", "body": { "companyId": 2, "amount": 500 } },
+      "expect": { "status": 200, "body": { "result": "SUCCESS" }, "balances": { "Dormant Haulage": 0 }, "receiptCount": 1 }
+    },
+    {
+      "name": "payment: a payment below one cent is refused as zero",
+      "given": { "clients": [{ "id": 1, "name": "Build-It Corp", "balance": 12500 }] },
+      "request": { "method": "POST", "path": "/api/payments/record", "body": { "companyId": 1, "amount": 0.004 } },
+      "expect": { "status": 400, "message": "Payment amount must be greater than zero.", "balances": { "Build-It Corp": 12500 }, "receiptCount": 0 }
+    },
+    {
+      "name": "payment: a fraction of a cent is rounded before the payment is recorded",
+      "given": { "clients": [{ "id": 1, "name": "Build-It Corp", "balance": 100 }] },
+      "request": { "method": "POST", "path": "/api/payments/record", "body": { "companyId": 1, "amount": 10.456 } },
+      "expect": { "status": 200, "body": { "result": "SUCCESS" }, "balances": { "Build-It Corp": 89.54 }, "receiptCount": 1 }
+    },
+    {
+      "name": "payment: an amount that rounds up past the balance is refused",
+      "given": { "clients": [{ "id": 1, "name": "Build-It Corp", "balance": 12500 }] },
+      "request": { "method": "POST", "path": "/api/payments/record", "body": { "companyId": 1, "amount": 12500.005 } },
+      "expect": { "status": 400, "messageStartsWith": "Payment exceeds the outstanding balance of 12500", "balances": { "Build-It Corp": 12500 }, "receiptCount": 0 }
     },
     {
       "name": "payment: the amount is checked before the client is looked up",

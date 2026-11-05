@@ -83,6 +83,54 @@ public class PaymentTests(ApiFactory api) : ApiTest(api)
         Assert.Equal(100.50m, Assert.Single(await Data.ReceiptsAsync()).Amount);
     }
 
+    [Fact]
+    public async Task Payment_below_one_cent_is_refused()
+    {
+        var client = await Data.AddClientAsync("Build-It Corp", balance: 12500);
+
+        var response = await PayAsync(client.CompanyId, 0.004m);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("Payment amount must be greater than zero.", await MessageAsync(response));
+        await AssertUnchanged(balance: 12500);
+    }
+
+    [Fact]
+    public async Task Fraction_of_a_cent_is_rounded_before_the_payment_is_recorded()
+    {
+        var client = await Data.AddClientAsync("Build-It Corp", balance: 100);
+
+        var response = await PayAsync(client.CompanyId, 10.456m);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(89.54m, await Data.BalanceOfAsync("Build-It Corp"));
+        Assert.Equal(10.46m, Assert.Single(await Data.ReceiptsAsync()).Amount);
+    }
+
+    [Fact]
+    public async Task Payment_that_rounds_up_past_the_balance_is_refused()
+    {
+        var client = await Data.AddClientAsync("Build-It Corp", balance: 12500);
+
+        var response = await PayAsync(client.CompanyId, 12500.005m);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Matches(@"^Payment exceeds the outstanding balance of 12500[.,]00\.$", await MessageAsync(response));
+        await AssertUnchanged(balance: 12500);
+    }
+
+    [Fact]
+    public async Task Deactivated_client_can_still_settle_the_balance()
+    {
+        var client = await Data.AddClientAsync("Build-It Corp", balance: 500, active: false);
+
+        var response = await PayAsync(client.CompanyId, 500m);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(0m, await Data.BalanceOfAsync("Build-It Corp"));
+        Assert.Equal(500m, Assert.Single(await Data.ReceiptsAsync()).Amount);
+    }
+
     private async Task AssertUnchanged(decimal balance)
     {
         Assert.Equal(balance, await Data.BalanceOfAsync("Build-It Corp"));

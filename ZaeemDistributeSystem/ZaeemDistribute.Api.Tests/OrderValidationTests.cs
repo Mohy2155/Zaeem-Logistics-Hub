@@ -13,7 +13,10 @@ public class OrderValidationTests(ApiFactory api) : ApiTest(api)
         { "missing end date", Line("DX-1", "2030-11-01", ""), "Invalid rental dates for plate DX-1." },
         { "end date before start date", Line("DX-1", "2030-11-10", "2030-11-09"), "End date must be after start date for plate DX-1." },
         { "end date equal to start date", Line("DX-1", "2030-11-10", "2030-11-10"), "End date must be after start date for plate DX-1." },
-        { "negative line total", Line("DX-1", "2030-11-01", "2030-11-03", lineTotal: -1), "Invalid pricing for plate DX-1." },
+        { "negative daily rate", Line("DX-1", "2030-11-01", "2030-11-03", dailyRate: -450), "Invalid pricing for plate DX-1." },
+        { "zero daily rate", Line("DX-1", "2030-11-01", "2030-11-03", dailyRate: 0), "Invalid pricing for plate DX-1." },
+        { "daily rate that rounds to zero", Line("DX-1", "2030-11-01", "2030-11-03", dailyRate: 0.004m), "Invalid pricing for plate DX-1." },
+        { "missing daily rate", LineWithoutRate("DX-1", "2030-11-01", "2030-11-03"), "Invalid pricing for plate DX-1." },
         { "negative tax", Line("DX-1", "2030-11-01", "2030-11-03", taxPercent: -5), "Invalid pricing for plate DX-1." },
         { "negative discount", Line("DX-1", "2030-11-01", "2030-11-03", discount: -1), "Invalid pricing for plate DX-1." },
         { "discount over 100", Line("DX-1", "2030-11-01", "2030-11-03", discount: 100.01m), "Invalid pricing for plate DX-1." },
@@ -71,12 +74,36 @@ public class OrderValidationTests(ApiFactory api) : ApiTest(api)
     }
 
     [Fact]
+    public async Task Deactivated_client_cannot_be_billed()
+    {
+        var client = await Data.AddClientAsync("Build-It Corp", balance: 1000, active: false);
+
+        var response = await PlaceOrderAsync(client.CompanyId, Line("DX-1", "2030-11-01", "2030-11-03"));
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal("Company is inactive and cannot be billed.", await MessageAsync(response));
+        await AssertNothingStored(balance: 1000);
+    }
+
+    [Fact]
     public async Task Line_validation_comes_before_the_client_lookup()
     {
         var response = await PlaceOrderAsync(999_999, Line("DX-1", "2030-11-05", "2030-11-04"));
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
+
+    private static object LineWithoutRate(string plate, string start, string end) => new
+    {
+        machineId = 101,
+        machineName = "Excavator X3000",
+        plateNumber = plate,
+        startDate = start,
+        endDate = end,
+        discount = 0m,
+        taxPercent = 0m,
+        taxType = "VAT",
+    };
 
     private async Task AssertNothingStored(decimal balance)
     {
