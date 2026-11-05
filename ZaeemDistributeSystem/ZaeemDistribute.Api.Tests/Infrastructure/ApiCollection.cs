@@ -36,8 +36,11 @@ public abstract class ApiTest : IAsyncLifetime
         return Task.CompletedTask;
     }
 
-    /// <summary>One order line as the frontend sends it (camelCase JSON, dates as yyyy-MM-dd).</summary>
-    protected static object Line(string plate, string start, string end, decimal lineTotal = 900m,
+    /// <summary>
+    /// One order line as the frontend sends it (camelCase JSON, dates as yyyy-MM-dd, no total: the API prices it).
+    /// The default 2-day line at 450 a day bills 900.
+    /// </summary>
+    protected static object Line(string plate, string start, string end, decimal dailyRate = 450m,
         decimal discount = 0, decimal taxPercent = 0, string machineName = "Excavator X3000", int machineId = 101) => new
     {
         machineId,
@@ -45,11 +48,10 @@ public abstract class ApiTest : IAsyncLifetime
         plateNumber = plate,
         startDate = start,
         endDate = end,
-        dailyRate = 450m,
+        dailyRate,
         discount,
         taxPercent,
         taxType = "VAT",
-        lineTotal,
     };
 
     protected Task<HttpResponseMessage> PlaceOrderAsync(int companyId, params object[] lines) =>

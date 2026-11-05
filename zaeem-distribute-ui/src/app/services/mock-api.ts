@@ -1,4 +1,5 @@
-import { Booking, findBookingConflict, normalizePlate, toIsoDay, toLocalDay } from './rental-dates';
+import { priceLine } from '../pages/portal/order-pricing';
+import { Booking, findBookingConflict, normalizePlate, rentalDays, toIsoDay, toLocalDay } from './rental-dates';
 
 /**
  * The GitHub Pages demo's stand-in for the .NET API: the same endpoints, rules and messages, backed by localStorage.
@@ -71,7 +72,7 @@ const fail = (status: number, message: string): MockResponse => ({ status, body:
 /** True for requests the demo answers in the browser instead of sending to the .NET API. */
 export const isMockApiUrl = (url: string): boolean => url.includes('localhost:5234') || url.includes('/api/');
 
-/** Money is stored to the cent, like the API's decimal(18,2) columns. Halves round up (the API rounds them to even). */
+/** Money is stored to the cent, like the API's decimal(18,2) columns, with halves rounded up as the API does. */
 const cents = (amount: number): number => Math.round(amount * 100) / 100;
 
 /** A calendar day as the API serialises a date-only DateTime. */
@@ -199,13 +200,15 @@ function placeOrder(payload: Record<string, any>): MockResponse {
     const end = parseDay(item.endDate);
     if (!start || !end) return fail(400, `Invalid rental dates for plate ${plate}.`);
     if (end <= start) return fail(400, `End date must be after start date for plate ${plate}.`);
-    const lineTotal = Number(item.lineTotal ?? 0);
-    const discount = Number(item.discount ?? 0);
-    const taxPercent = Number(item.taxPercent ?? 0);
-    if (!(lineTotal >= 0) || !(discount >= 0) || discount > 100 || !(taxPercent >= 0)) {
+    // Held to the cent, as stored; any line total the caller sends is ignored. A missing rate counts as 0.
+    const dailyRate = cents(Number(item.dailyRate ?? 0));
+    const discount = cents(Number(item.discount ?? 0));
+    const taxPercent = cents(Number(item.taxPercent ?? 0));
+    if (!(dailyRate > 0) || !(discount >= 0) || discount > 100 || !(taxPercent >= 0)) {
       return fail(400, `Invalid pricing for plate ${plate}.`);
     }
-    lines.push({ item, plate, start, end, lineTotal: cents(lineTotal), discount, taxPercent });
+    const amount = priceLine(rentalDays(toIsoDay(start), toIsoDay(end)), dailyRate, discount, taxPercent).total;
+    lines.push({ item, plate, start, end, dailyRate, discount, taxPercent, amount });
   }
 
   const companies = read<MockCompany>(MOCK_STORAGE.companies);
@@ -223,7 +226,7 @@ function placeOrder(payload: Record<string, any>): MockResponse {
     booked.push(candidate);
   }
 
-  const orderTotal = cents(lines.reduce((sum, line) => sum + line.lineTotal, 0));
+  const orderTotal = cents(lines.reduce((sum, line) => sum + line.amount, 0));
   company.outstandingBalance = cents(company.outstandingBalance + orderTotal);
   write(MOCK_STORAGE.companies, companies);
 
@@ -243,9 +246,9 @@ function placeOrder(payload: Record<string, any>): MockResponse {
     plateNumber: line.plate,
     startDate: midnight(line.start),
     endDate: midnight(line.end),
-    dailyRate: Number(line.item.dailyRate ?? 0),
+    dailyRate: line.dailyRate,
     discount: line.discount,
-    totalAmount: line.lineTotal,
+    totalAmount: line.amount,
     status: 'Active',
     taxType: line.item.taxType ?? '',
     taxPercent: line.taxPercent

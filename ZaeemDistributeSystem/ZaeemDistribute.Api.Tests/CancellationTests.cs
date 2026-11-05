@@ -54,8 +54,8 @@ public class CancellationTests(ApiFactory api) : ApiTest(api)
     {
         var client = await Data.AddClientAsync("Build-It Corp", balance: 0);
         var placed = await JsonAsync(await PlaceOrderAsync(client.CompanyId,
-            Line("FS-101", "2030-11-01", "2030-11-03", lineTotal: 500m),
-            Line("FS-102", "2030-11-01", "2030-11-03", lineTotal: 500m)));
+            Line("FS-101", "2030-11-01", "2030-11-03", dailyRate: 250m),
+            Line("FS-102", "2030-11-01", "2030-11-03", dailyRate: 250m)));
         var orderId = placed.GetProperty("orderId").GetInt32();
         Assert.Equal(1000m, await Data.BalanceOfAsync("Build-It Corp"));
 
@@ -78,7 +78,7 @@ public class CancellationTests(ApiFactory api) : ApiTest(api)
     public async Task Cancelling_an_order_twice_is_refused_and_reverses_once()
     {
         var client = await Data.AddClientAsync("Build-It Corp", balance: 0);
-        var placed = await JsonAsync(await PlaceOrderAsync(client.CompanyId, Line("FS-101", "2030-11-01", "2030-11-03", lineTotal: 750m)));
+        var placed = await JsonAsync(await PlaceOrderAsync(client.CompanyId, Line("FS-101", "2030-11-01", "2030-11-03", dailyRate: 375m)));
         var orderId = placed.GetProperty("orderId").GetInt32();
         await CancelOrderAsync(orderId);
 

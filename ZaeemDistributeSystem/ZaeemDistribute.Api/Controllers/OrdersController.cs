@@ -27,8 +27,8 @@ namespace ZaeemDistribute.Api.Controllers
             if (request.Items == null || request.Items.Count == 0)
                 return BadRequest(new { message = "Order must contain at least one item." });
 
-            // 1. Validate every line before touching the database
-            var lines = new List<(OrderItemDto Item, string Plate, DateTime Start, DateTime End)>();
+            // 1. Validate and price every line before touching the database
+            var lines = new List<PricedLine>();
             foreach (var item in request.Items)
             {
                 var plate = item.PlateNumber.Trim().ToUpperInvariant();
@@ -38,10 +38,15 @@ namespace ZaeemDistribute.Api.Controllers
                     return BadRequest(new { message = $"Invalid rental dates for plate {plate}." });
                 if (end <= start)
                     return BadRequest(new { message = $"End date must be after start date for plate {plate}." });
-                if (item.LineTotal < 0 || item.Discount < 0 || item.Discount > 100 || item.TaxPercent < 0)
+
+                // Held to 2 decimals, as stored, so the stored fields reproduce the bill. A missing rate binds to 0.
+                var rate = Cents(item.DailyRate);
+                var discount = Cents(item.Discount);
+                var tax = Cents(item.TaxPercent);
+                if (rate <= 0 || discount < 0 || discount > 100 || tax < 0)
                     return BadRequest(new { message = $"Invalid pricing for plate {plate}." });
 
-                lines.Add((item, plate, start, end));
+                lines.Add(new PricedLine(item, plate, start, end, rate, discount, tax, PriceLine((end - start).Days, rate, discount, tax)));
             }
 
             // Serializable so two concurrent orders cannot both pass the double-booking check
@@ -68,8 +73,8 @@ namespace ZaeemDistribute.Api.Controllers
                 taken.Add((line.Plate, line.Start, line.End));
             }
 
-            // 3. Bill the order (Balance Due System) from the line items, not a client-supplied total
-            var orderTotal = lines.Sum(l => Math.Round(l.Item.LineTotal, 2));
+            // 3. Bill the order (Balance Due System) with the server's own line prices
+            var orderTotal = lines.Sum(l => l.Amount);
             company.OutstandingBalance += orderTotal;
 
             var order = new BulkOrder
@@ -82,23 +87,23 @@ namespace ZaeemDistribute.Api.Controllers
             _context.BulkOrders.Add(order);
             await _context.SaveChangesAsync(); // Assigns order.OrderId
 
-            foreach (var (item, plate, start, end) in lines)
+            foreach (var line in lines)
             {
                 _context.RentalItems.Add(new RentalItem
                 {
                     BulkOrderId = order.OrderId,
-                    MachineId = item.MachineId,
-                    MachineName = item.MachineName,
+                    MachineId = line.Item.MachineId,
+                    MachineName = line.Item.MachineName,
                     CompanyName = company.CompanyName,
-                    PlateNumber = plate,
-                    StartDate = start,
-                    EndDate = end,
-                    DailyRate = item.DailyRate,
-                    Discount = item.Discount,
-                    TotalAmount = Math.Round(item.LineTotal, 2),
+                    PlateNumber = line.Plate,
+                    StartDate = line.Start,
+                    EndDate = line.End,
+                    DailyRate = line.Rate,
+                    Discount = line.Discount,
+                    TotalAmount = line.Amount,
                     Status = "Active",
-                    TaxType = item.TaxType,
-                    TaxPercent = item.TaxPercent
+                    TaxType = line.Item.TaxType,
+                    TaxPercent = line.Tax
                 });
             }
 
@@ -191,6 +196,15 @@ namespace ZaeemDistribute.Api.Controllers
             day = parsed.Date;
             return ok;
         }
+
+        private static decimal Cents(decimal value) => Math.Round(value, 2, MidpointRounding.AwayFromZero);
+
+        /// <summary>What a line bills: the discount first, then tax on the discounted amount, in whole cents (halves up).</summary>
+        private static decimal PriceLine(int days, decimal dailyRate, decimal discountPercent, decimal taxPercent) =>
+            Cents(days * dailyRate * (1 - discountPercent / 100m) * (1 + taxPercent / 100m));
+
+        private sealed record PricedLine(OrderItemDto Item, string Plate, DateTime Start, DateTime End,
+            decimal Rate, decimal Discount, decimal Tax, decimal Amount);
     }
 
     // This is the catcher's mitt for the JSON.
@@ -212,6 +226,6 @@ namespace ZaeemDistribute.Api.Controllers
         public decimal Discount { get; set; }
         public decimal TaxPercent { get; set; }
         public string TaxType { get; set; } = string.Empty;
-        public decimal LineTotal { get; set; }
+        // No line total: the server prices each line itself, and ignores one if a caller still sends it.
     }
 }
