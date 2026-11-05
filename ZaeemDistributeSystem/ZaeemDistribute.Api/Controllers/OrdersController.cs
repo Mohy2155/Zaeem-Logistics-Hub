@@ -1,4 +1,3 @@
-using System.Data;
 using System.Globalization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -49,8 +48,10 @@ namespace ZaeemDistribute.Api.Controllers
                 lines.Add(new PricedLine(item, plate, start, end, rate, discount, tax, PriceLine((end - start).Days, rate, discount, tax)));
             }
 
-            // Serializable so two concurrent orders cannot both pass the double-booking check
-            await using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+            // Orders take turns: each one holds the order lock until it commits, so the next order's booking
+            // check and client read see everything it stored. Waiting over 5 seconds raises error 50001 (409).
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+            await _context.Database.ExecuteSqlRawAsync(OrderLockSql);
 
             var company = await _context.Companies.FindAsync(request.CompanyId);
             if (company == null) return NotFound(new { message = "Company not found." });
@@ -199,6 +200,13 @@ namespace ZaeemDistribute.Api.Controllers
             day = parsed.Date;
             return ok;
         }
+
+        // An exclusive application lock owned by the order's transaction, released when it commits or rolls back.
+        private const string OrderLockSql = """
+            DECLARE @result int;
+            EXEC @result = sp_getapplock @Resource = N'place-bulk-order', @LockMode = 'Exclusive', @LockOwner = 'Transaction', @LockTimeout = 5000;
+            IF @result < 0 THROW 50001, 'Order lock not acquired', 1;
+            """;
 
         private static decimal Cents(decimal value) => Math.Round(value, 2, MidpointRounding.AwayFromZero);
 

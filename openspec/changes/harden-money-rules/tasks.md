@@ -36,10 +36,10 @@ Each group changes the API, its tests, the contract cases and the demo mock toge
 
 ## 6. Orders take turns
 
-- [ ] 6.1 In `PlaceBulkOrder`, open the transaction at the default isolation level and take the application lock first (D3); verify the existing order and double-booking tests pass
-- [ ] 6.2 Add the concurrency tests for orders from `specs/balance-integrity` and `specs/api-test-suite` (D8): same plate, and different plates for the same client and for different clients, each repeated 10 times; verify they pass 3 runs in a row
-- [ ] 6.3 Add the lock-timeout test: hold the application lock from a separate connection, place an order, and expect 409 "Another order was being placed at the same time. Please try again." after about 5 seconds with nothing stored; verify it passes
-- [ ] 6.4 Mutation check: remove the lock statement and confirm the same-plate test fails (run up to 3 times, raising repetitions if it never fails), then restore it
+- [x] 6.1 In `PlaceBulkOrder`, open the transaction at the default isolation level and take the application lock first (D3); verify the existing order and double-booking tests pass
+- [x] 6.2 Add the concurrency tests for orders from `specs/balance-integrity` and `specs/api-test-suite` (D8): same plate, and different plates for the same client and for different clients, each repeated 10 times; verify they pass 3 runs in a row
+- [x] 6.3 Add the lock-timeout test: hold the application lock from a separate connection, place an order, and expect 409 "Another order was being placed at the same time. Please try again." after about 5 seconds with nothing stored; verify it passes
+- [x] 6.4 Mutation check: remove the lock statement and confirm the same-plate test fails (run up to 3 times, raising repetitions if it never fails), then restore it
 
 ## 7. Balance row version
 
