@@ -264,9 +264,9 @@ function placeOrder(payload: Record<string, any>): MockResponse {
   });
 }
 
-/** CompaniesController.RecordPayment: amount first, then the client, then the balance limit. */
+/** CompaniesController.RecordPayment: amount (held to the cent) first, then the client, then the balance limit. */
 function recordPayment(payload: Record<string, any>): MockResponse {
-  const amount = Number(payload['amount']);
+  const amount = cents(Number(payload['amount']));
   if (!(amount > 0)) return fail(400, 'Payment amount must be greater than zero.');
 
   const companies = read<MockCompany>(MOCK_STORAGE.companies);

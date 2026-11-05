@@ -364,6 +364,24 @@
       "expect": { "status": 400, "message": "Payment amount must be greater than zero.", "balances": { "Build-It Corp": 12500 }, "receiptCount": 0 }
     },
     {
+      "name": "payment: a payment below one cent is refused as zero",
+      "given": { "clients": [{ "id": 1, "name": "Build-It Corp", "balance": 12500 }] },
+      "request": { "method": "POST", "path": "/api/payments/record", "body": { "companyId": 1, "amount": 0.004 } },
+      "expect": { "status": 400, "message": "Payment amount must be greater than zero.", "balances": { "Build-It Corp": 12500 }, "receiptCount": 0 }
+    },
+    {
+      "name": "payment: a fraction of a cent is rounded before the payment is recorded",
+      "given": { "clients": [{ "id": 1, "name": "Build-It Corp", "balance": 100 }] },
+      "request": { "method": "POST", "path": "/api/payments/record", "body": { "companyId": 1, "amount": 10.456 } },
+      "expect": { "status": 200, "body": { "result": "SUCCESS" }, "balances": { "Build-It Corp": 89.54 }, "receiptCount": 1 }
+    },
+    {
+      "name": "payment: an amount that rounds up past the balance is refused",
+      "given": { "clients": [{ "id": 1, "name": "Build-It Corp", "balance": 12500 }] },
+      "request": { "method": "POST", "path": "/api/payments/record", "body": { "companyId": 1, "amount": 12500.005 } },
+      "expect": { "status": 400, "messageStartsWith": "Payment exceeds the outstanding balance of 12500", "balances": { "Build-It Corp": 12500 }, "receiptCount": 0 }
+    },
+    {
       "name": "payment: the amount is checked before the client is looked up",
       "given": { "clients": [] },
       "request": { "method": "POST", "path": "/api/payments/record", "body": { "companyId": 999, "amount": 0 } },

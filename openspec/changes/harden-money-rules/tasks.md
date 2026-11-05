@@ -19,9 +19,9 @@ Each group changes the API, its tests, the contract cases and the demo mock toge
 
 ## 3. Payment rounding
 
-- [ ] 3.1 Round the payment amount to cents before the checks in `RecordPayment` (D7); verify `dotnet build` passes
-- [ ] 3.2 Add API tests from `specs/payment-recording`: $0.004 refused with no receipt, $10.456 on a $100.00 balance gives $89.54 and a $10.46 receipt, $12,500.005 refused as an overpayment. Verify they pass, and that removing the rounding line makes the sub-cent test fail (then revert)
-- [ ] 3.3 Add the sub-cent and rounded-payment contract cases and round payments in the mock with `cents()` before its checks; verify both contract runners pass
+- [x] 3.1 Round the payment amount to cents before the checks in `RecordPayment` (D7); verify `dotnet build` passes
+- [x] 3.2 Add API tests from `specs/payment-recording`: $0.004 refused with no receipt, $10.456 on a $100.00 balance gives $89.54 and a $10.46 receipt, $12,500.005 refused as an overpayment. Verify they pass, and that removing the rounding line makes the sub-cent test fail (then revert)
+- [x] 3.3 Add the sub-cent and rounded-payment contract cases and round payments in the mock with `cents()` before its checks; verify both contract runners pass
 
 ## 4. Deactivated clients
 

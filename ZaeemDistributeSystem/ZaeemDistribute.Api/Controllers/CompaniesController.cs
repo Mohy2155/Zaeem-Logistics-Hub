@@ -47,6 +47,8 @@ namespace ZaeemDistribute.Api.Controllers
         [HttpPost("/api/payments/record")]
         public async Task<IActionResult> RecordPayment([FromBody] PaymentRequestDto request)
         {
+            // Held to the cent before any check, so the balance, the receipt and the limit all use one figure
+            request.Amount = Math.Round(request.Amount, 2, MidpointRounding.AwayFromZero);
             if (request.Amount <= 0)
             {
                 return BadRequest(new { message = "Payment amount must be greater than zero." });
