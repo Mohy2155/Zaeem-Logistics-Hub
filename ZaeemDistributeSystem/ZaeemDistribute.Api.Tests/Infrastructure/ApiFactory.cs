@@ -4,6 +4,8 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using ZaeemDistribute.Api.Models;
 
 namespace ZaeemDistribute.Api.Tests.Infrastructure;
 
@@ -36,6 +38,9 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
     public TestData Data => new(Services);
 
+    /// <summary>Makes the API's next save fail on demand.</summary>
+    public SaveFailures SaveFailures { get; } = new();
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseSetting("ConnectionStrings:DefaultConnection", ConnectionString);
@@ -45,6 +50,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
             ["ConnectionStrings:DefaultConnection"] = ConnectionString,
             ["Seed:Enabled"] = "false",
         }));
+        builder.ConfigureServices(services => services.ConfigureDbContext<ZaeemDbContext>(options => options.AddInterceptors(SaveFailures)));
     }
 
     async Task IAsyncLifetime.InitializeAsync()

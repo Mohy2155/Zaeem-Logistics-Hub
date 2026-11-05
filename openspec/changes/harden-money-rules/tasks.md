@@ -31,8 +31,8 @@ Each group changes the API, its tests, the contract cases and the demo mock toge
 
 ## 5. Conflict handling
 
-- [ ] 5.1 Add the exception handler (D5) and register it in `Program.cs` with `AddExceptionHandler`, `AddProblemDetails` and `UseExceptionHandler()`, mapping `DbUpdateConcurrencyException` and `SqlException` 50001 anywhere in the inner-exception chain; verify `dotnet build` passes and an unrelated exception still answers 500
-- [ ] 5.2 Register a test-only `SaveChangesInterceptor` in the test factory that throws `DbUpdateConcurrencyException` on demand, and add a test that a payment hitting it answers 409 with the balance-changed message and creates no receipt; verify it passes
+- [x] 5.1 Add the exception handler (D5) and register it in `Program.cs` with `AddExceptionHandler`, `AddProblemDetails` and `UseExceptionHandler()`, mapping `DbUpdateConcurrencyException` and `SqlException` 50001 anywhere in the inner-exception chain; verify `dotnet build` passes and an unrelated exception still answers 500
+- [x] 5.2 Register a test-only `SaveChangesInterceptor` in the test factory that throws `DbUpdateConcurrencyException` on demand, and add a test that a payment hitting it answers 409 with the balance-changed message and creates no receipt; verify it passes
 
 ## 6. Orders take turns
 

@@ -28,7 +28,11 @@ public abstract class ApiTest : IAsyncLifetime
     protected HttpClient Client { get; }
     protected TestData Data { get; }
 
-    public Task InitializeAsync() => Data.ResetAsync();
+    public Task InitializeAsync()
+    {
+        Api.SaveFailures.Clear();
+        return Data.ResetAsync();
+    }
 
     public Task DisposeAsync()
     {

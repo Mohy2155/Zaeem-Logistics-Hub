@@ -1,5 +1,6 @@
 using Scalar.AspNetCore;
 using Microsoft.EntityFrameworkCore;
+using ZaeemDistribute.Api;
 using ZaeemDistribute.Api.Models;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -21,7 +22,13 @@ builder.Services.AddDbContext<ZaeemDbContext>(options =>
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
+// A request that loses a race with another one answers 409 "try again"; any other error stays a 500
+builder.Services.AddExceptionHandler<ConflictExceptionHandler>();
+builder.Services.AddProblemDetails();
+
 var app = builder.Build();
+
+app.UseExceptionHandler();
 
 app.MapOpenApi();
 app.MapScalarApiReference();
