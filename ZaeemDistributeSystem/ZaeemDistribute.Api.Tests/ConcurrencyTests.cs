@@ -97,6 +97,49 @@ public class ConcurrencyTests(ApiFactory api) : ApiTest(api)
         Assert.Equal(0m, await Data.BalanceOfAsync("Build-It Corp"));
     }
 
+    [Fact]
+    public async Task Two_payments_at_the_same_moment_never_lose_one()
+    {
+        for (var run = 0; run < Repetitions; run++)
+        {
+            await Data.ResetAsync();
+            var client = await Data.AddClientAsync("Build-It Corp", balance: 200);
+
+            var responses = await AtTheSameTime(() => PayAsync(client.CompanyId, 100m), () => PayAsync(client.CompanyId, 100m));
+
+            var accepted = responses.Count(r => r.StatusCode == HttpStatusCode.OK);
+            Assert.InRange(accepted, 1, 2);
+            foreach (var refused in responses.Where(r => r.StatusCode != HttpStatusCode.OK))
+            {
+                Assert.Equal(HttpStatusCode.Conflict, refused.StatusCode);
+                Assert.Equal("The client's balance changed while this request was being processed. Please try again.", await MessageAsync(refused));
+            }
+            // Never two receipts against a single deduction
+            Assert.Equal(accepted, (await Data.ReceiptsAsync()).Count);
+            Assert.Equal(200m - 100m * accepted, await Data.BalanceOfAsync("Build-It Corp"));
+        }
+    }
+
+    [Fact]
+    public async Task Two_cancellations_of_one_rental_at_the_same_moment_reverse_it_once()
+    {
+        for (var run = 0; run < Repetitions; run++)
+        {
+            await Data.ResetAsync();
+            await Data.AddClientAsync("Mega Structures", balance: 1000);
+            var rental = await Data.AddRentalAsync("Mega Structures", "AP-501", Day("2030-11-01"), Day("2030-11-03"), total: 500);
+            var path = $"/api/orders/rentals/{rental.RentalItemId}";
+
+            var responses = await AtTheSameTime(() => Client.DeleteAsync(path), () => Client.DeleteAsync(path));
+
+            // One cancels; the other finds it already cancelled (400) or loses the race for the balance (409)
+            Assert.Single(responses, r => r.StatusCode == HttpStatusCode.OK);
+            Assert.Contains(responses.Single(r => r.StatusCode != HttpStatusCode.OK).StatusCode, new[] { HttpStatusCode.BadRequest, HttpStatusCode.Conflict });
+            Assert.Equal(500m, await Data.BalanceOfAsync("Mega Structures"));
+            Assert.Equal("Cancelled", Assert.Single(await Data.RentalsAsync()).Status);
+        }
+    }
+
     /// <summary>Sends every request at once: none starts until all are ready.</summary>
     private static async Task<HttpResponseMessage[]> AtTheSameTime(params Func<Task<HttpResponseMessage>>[] requests)
     {

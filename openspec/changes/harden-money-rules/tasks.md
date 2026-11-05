@@ -43,10 +43,10 @@ Each group changes the API, its tests, the contract cases and the demo mock toge
 
 ## 7. Balance row version
 
-- [ ] 7.1 Add `[Timestamp] RowVersion` to `Company` and generate one migration; verify `dotnet ef migrations list` shows it and a fresh test run applies it
-- [ ] 7.2 Add the payment and cancellation race tests from `specs/balance-integrity` and `specs/api-test-suite` (D8): two payments on one balance, two cancellations of one rental, each repeated 10 times; verify they pass 3 runs in a row
-- [ ] 7.3 Mutation check: remove `RowVersion` together with its migration and snapshot lines and confirm the payment race test fails (run up to 3 times, raising repetitions if it never fails), then restore all three
-- [ ] 7.4 Add the concurrency difference to the intentional-differences list in `contracts/README.md`; verify it states why the mock does not mirror it
+- [x] 7.1 Add `[Timestamp] RowVersion` to `Company` and generate one migration; verify `dotnet ef migrations list` shows it and a fresh test run applies it
+- [x] 7.2 Add the payment and cancellation race tests from `specs/balance-integrity` and `specs/api-test-suite` (D8): two payments on one balance, two cancellations of one rental, each repeated 10 times; verify they pass 3 runs in a row
+- [x] 7.3 Mutation check: remove `RowVersion` together with its migration and snapshot lines and confirm the payment race test fails (run up to 3 times, raising repetitions if it never fails), then restore all three
+- [x] 7.4 Add the concurrency difference to the intentional-differences list in `contracts/README.md`; verify it states why the mock does not mirror it
 
 ## 8. Whole-system check
 

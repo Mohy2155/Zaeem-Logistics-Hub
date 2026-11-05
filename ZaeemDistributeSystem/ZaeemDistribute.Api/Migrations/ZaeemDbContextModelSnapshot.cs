@@ -92,6 +92,12 @@ namespace ZaeemDistribute.Api.Migrations
                     b.Property<decimal>("OutstandingBalance")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
                     b.HasKey("CompanyId");
 
                     b.ToTable("Companies");
