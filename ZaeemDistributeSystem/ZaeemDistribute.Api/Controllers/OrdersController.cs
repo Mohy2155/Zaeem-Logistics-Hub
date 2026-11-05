@@ -115,7 +115,8 @@ namespace ZaeemDistribute.Api.Controllers
                 OrderId = order.OrderId,
                 Result = "SUCCESS",
                 AmountBilled = orderTotal,
-                OutstandingBalance = company.OutstandingBalance
+                OutstandingBalance = company.OutstandingBalance,
+                Lines = lines.Select(l => new BilledLineDto { PlateNumber = l.Plate, Amount = l.Amount }).ToList()
             });
         }
 

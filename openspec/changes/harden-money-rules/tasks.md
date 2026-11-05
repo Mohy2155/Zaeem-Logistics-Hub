@@ -12,10 +12,10 @@ Each group changes the API, its tests, the contract cases and the demo mock toge
 
 ## 2. Billed lines in the response and the order documents
 
-- [ ] 2.1 Add `[NotMapped] Lines` (`PlateNumber`, `Amount`, in request order) to `OrderResultDto` and fill it in `PlaceBulkOrder` (D2); add the `lines` assertions to the two-line test; verify `dotnet test` passes and `dotnet ef migrations has-pending-model-changes` reports none
-- [ ] 2.2 Add `lines` to the order success contract case and return it from the mock; verify both contract runners pass
-- [ ] 2.3 Make `CompanyService.placeBulkOrder` post only the request fields (D2), with a unit test using `HttpTestingController` asserting the posted lines have no `lineTotal` or `rentalDays`; verify `npm test` passes
-- [ ] 2.4 Build the confirmation and invoice from the response in `portal.component.ts`: total from `amountBilled`, each line from `lines[i].amount`. Add a unit test where the response differs from the cart estimate by a cent and the confirmation shows the server's figure. Verify `npm test` passes and the demo build's confirmation and PDF show the billed amounts
+- [x] 2.1 Add `[NotMapped] Lines` (`PlateNumber`, `Amount`, in request order) to `OrderResultDto` and fill it in `PlaceBulkOrder` (D2); add the `lines` assertions to the two-line test; verify `dotnet test` passes and `dotnet ef migrations has-pending-model-changes` reports none
+- [x] 2.2 Add `lines` to the order success contract case and return it from the mock; verify both contract runners pass
+- [x] 2.3 Make `CompanyService.placeBulkOrder` post only the request fields (D2), with a unit test using `HttpTestingController` asserting the posted lines have no `lineTotal` or `rentalDays`; verify `npm test` passes
+- [x] 2.4 Build the confirmation and invoice from the response in `portal.component.ts`: total from `amountBilled`, each line from `lines[i].amount`. Add a unit test where the response differs from the cart estimate by a cent and the confirmation shows the server's figure. Verify `npm test` passes and the demo build's confirmation and PDF show the billed amounts
 
 ## 3. Payment rounding
 

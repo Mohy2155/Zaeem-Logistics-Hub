@@ -255,7 +255,13 @@ function placeOrder(payload: Record<string, any>): MockResponse {
   }));
   write(MOCK_STORAGE.rentals, [...rentals, ...added]);
 
-  return ok({ orderId, result: 'SUCCESS', amountBilled: orderTotal, outstandingBalance: company.outstandingBalance });
+  return ok({
+    orderId,
+    result: 'SUCCESS',
+    amountBilled: orderTotal,
+    outstandingBalance: company.outstandingBalance,
+    lines: lines.map(line => ({ plateNumber: line.plate, amount: line.amount })),
+  });
 }
 
 /** CompaniesController.RecordPayment: amount first, then the client, then the balance limit. */

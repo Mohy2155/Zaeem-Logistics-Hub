@@ -23,6 +23,17 @@ public class BillingTests(ApiFactory api) : ApiTest(api)
         Assert.Equal(3335.00m, body.GetProperty("amountBilled").GetDecimal());
         Assert.Equal(4335.00m, body.GetProperty("outstandingBalance").GetDecimal());
         Assert.Equal(4335.00m, await Data.BalanceOfAsync("Build-It Corp"));
+        Assert.Collection(body.GetProperty("lines").EnumerateArray(),
+            first =>
+            {
+                Assert.Equal("FS-101", first.GetProperty("plateNumber").GetString());
+                Assert.Equal(2835.00m, first.GetProperty("amount").GetDecimal());
+            },
+            second =>
+            {
+                Assert.Equal("FS-102", second.GetProperty("plateNumber").GetString());
+                Assert.Equal(500.00m, second.GetProperty("amount").GetDecimal());
+            });
 
         var order = Assert.Single(await Data.OrdersAsync());
         Assert.Equal(body.GetProperty("orderId").GetInt32(), order.OrderId);

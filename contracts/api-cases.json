@@ -55,7 +55,10 @@
       },
       "expect": {
         "status": 200,
-        "body": { "orderId": { "$matches": "^\\d+$" }, "result": "SUCCESS", "amountBilled": 3335, "outstandingBalance": 4335 },
+        "body": {
+          "orderId": { "$matches": "^\\d+$" }, "result": "SUCCESS", "amountBilled": 3335, "outstandingBalance": 4335,
+          "lines": [{ "plateNumber": "FS-101", "amount": 2835 }, { "plateNumber": "FS-102", "amount": 500 }]
+        },
         "balances": { "Build-It Corp": 4335 },
         "rentalStatuses": { "FS-101": "Active", "FS-102": "Active" },
         "rentalsAfter": [
@@ -74,7 +77,7 @@
       },
       "expect": {
         "status": 200,
-        "body": { "result": "SUCCESS", "amountBilled": 2835, "outstandingBalance": 3835 },
+        "body": { "result": "SUCCESS", "amountBilled": 2835, "outstandingBalance": 3835, "lines": [{ "plateNumber": "DX-7728", "amount": 2835 }] },
         "balances": { "Build-It Corp": 3835 },
         "rentalsAfter": [{ "plateNumber": "DX-7728", "totalAmount": 2835 }]
       }

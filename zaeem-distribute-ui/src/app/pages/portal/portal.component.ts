@@ -89,15 +89,20 @@ export class ClientPortalComponent {
     if (!company || items.length === 0 || this.placing()) return;
 
     this.placing.set(true);
-    const total = this.total();
     this.companyService.placeBulkOrder({ companyId: company.companyId, items }).subscribe({
-      next: (response: any) => {
+      next: response => {
         this.placing.set(false);
         if (!(response && response.result === 'SUCCESS')) {
           this.toasts.error('The order could not be placed. Nothing was billed; try again.');
           return;
         }
-        const order: CompletedOrder = { invoiceId: this.invoiceIdFrom(response), company, items, total };
+        // The confirmation and invoice show what the server billed; the cart's figures were an estimate.
+        const order: CompletedOrder = {
+          invoiceId: this.invoiceIdFrom(response),
+          company,
+          items: items.map((item, i) => ({ ...item, lineTotal: response.lines[i].amount })),
+          total: response.amountBilled,
+        };
         this.cart.set([]);
         this.refreshRentals(); // New bookings must count in the next conflict check
         this.toasts.success(`Order ${order.invoiceId} placed for ${company.companyName}.`);

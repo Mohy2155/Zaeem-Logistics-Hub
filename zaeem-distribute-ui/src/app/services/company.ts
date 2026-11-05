@@ -53,13 +53,27 @@ export interface OrderRequestItem {
   discount: number;
   taxType: string;
   taxPercent: number;
-  lineTotal: number;
 }
 
-// The order total is computed server-side from the line items.
+// The server prices every line, so the request carries no totals.
 export interface OrderRequestDto {
   companyId: number;
   items: OrderRequestItem[];
+}
+
+/** What the server billed for one line of a placed order. */
+export interface BilledLine {
+  plateNumber: string;
+  amount: number;
+}
+
+export interface OrderResult {
+  orderId: number;
+  result: string;
+  amountBilled: number;
+  outstandingBalance: number;
+  /** One per request line, in the same order. */
+  lines: BilledLine[];
 }
 
 export interface CompaniesSnapshot {
@@ -162,8 +176,20 @@ export class CompanyService {
   }
 
   // Post-paid B2B: the API bills the order onto the company's outstanding balance
-  placeBulkOrder(payload: OrderRequestDto): Observable<any> {
-    return this.http.post<any>(`${this.ordersUrl}/place-bulk-order`, payload).pipe(
+  placeBulkOrder(order: OrderRequestDto): Observable<OrderResult> {
+    // Only the request fields: cart lines also carry the preview's lineTotal and rentalDays.
+    const items = order.items.map((item): OrderRequestItem => ({
+      machineId: item.machineId,
+      machineName: item.machineName,
+      plateNumber: item.plateNumber,
+      startDate: item.startDate,
+      endDate: item.endDate,
+      dailyRate: item.dailyRate,
+      discount: item.discount,
+      taxType: item.taxType,
+      taxPercent: item.taxPercent,
+    }));
+    return this.http.post<OrderResult>(`${this.ordersUrl}/place-bulk-order`, { companyId: order.companyId, items }).pipe(
       tap(() => this.refreshCompanies())
     );
   }
