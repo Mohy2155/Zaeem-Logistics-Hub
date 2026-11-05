@@ -41,6 +41,19 @@ public class CancellationTests(ApiFactory api) : ApiTest(api)
     }
 
     [Fact]
+    public async Task Cancelling_a_deactivated_clients_rental_still_reverses_its_charge()
+    {
+        await Data.AddClientAsync("Dormant Haulage", balance: 1000, active: false);
+        var rental = await Data.AddRentalAsync("Dormant Haulage", "AP-501", Day("2030-11-01"), Day("2030-11-03"), total: 400);
+
+        var response = await CancelRentalAsync(rental.RentalItemId);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(600m, await Data.BalanceOfAsync("Dormant Haulage"));
+        Assert.Equal("Cancelled", Assert.Single(await Data.RentalsAsync()).Status);
+    }
+
+    [Fact]
     public async Task Cancelling_an_unknown_rental_is_not_found()
     {
         var response = await CancelRentalAsync(424_242);

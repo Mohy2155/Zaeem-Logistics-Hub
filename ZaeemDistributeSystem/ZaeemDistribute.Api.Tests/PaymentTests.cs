@@ -119,6 +119,18 @@ public class PaymentTests(ApiFactory api) : ApiTest(api)
         await AssertUnchanged(balance: 12500);
     }
 
+    [Fact]
+    public async Task Deactivated_client_can_still_settle_the_balance()
+    {
+        var client = await Data.AddClientAsync("Build-It Corp", balance: 500, active: false);
+
+        var response = await PayAsync(client.CompanyId, 500m);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(0m, await Data.BalanceOfAsync("Build-It Corp"));
+        Assert.Equal(500m, Assert.Single(await Data.ReceiptsAsync()).Amount);
+    }
+
     private async Task AssertUnchanged(decimal balance)
     {
         Assert.Equal(balance, await Data.BalanceOfAsync("Build-It Corp"));

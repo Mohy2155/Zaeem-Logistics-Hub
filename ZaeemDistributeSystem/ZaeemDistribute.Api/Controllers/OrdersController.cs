@@ -54,6 +54,8 @@ namespace ZaeemDistribute.Api.Controllers
 
             var company = await _context.Companies.FindAsync(request.CompanyId);
             if (company == null) return NotFound(new { message = "Company not found." });
+            // A deactivated client can still pay and have rentals cancelled, but takes no new orders
+            if (!company.IsActive) return Conflict(new { message = "Company is inactive and cannot be billed." });
 
             // 2. Double-booking check: against active bookings and within the order itself
             var plates = lines.Select(l => l.Plate).Distinct().ToList();

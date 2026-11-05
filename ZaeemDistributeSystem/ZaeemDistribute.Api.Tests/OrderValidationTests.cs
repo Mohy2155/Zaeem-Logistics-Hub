@@ -74,6 +74,18 @@ public class OrderValidationTests(ApiFactory api) : ApiTest(api)
     }
 
     [Fact]
+    public async Task Deactivated_client_cannot_be_billed()
+    {
+        var client = await Data.AddClientAsync("Build-It Corp", balance: 1000, active: false);
+
+        var response = await PlaceOrderAsync(client.CompanyId, Line("DX-1", "2030-11-01", "2030-11-03"));
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal("Company is inactive and cannot be billed.", await MessageAsync(response));
+        await AssertNothingStored(balance: 1000);
+    }
+
+    [Fact]
     public async Task Line_validation_comes_before_the_client_lookup()
     {
         var response = await PlaceOrderAsync(999_999, Line("DX-1", "2030-11-05", "2030-11-04"));

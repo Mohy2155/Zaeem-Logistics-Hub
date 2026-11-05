@@ -26,7 +26,7 @@ export interface MockCompany {
   companyName: string;
   outstandingBalance: number;
   defaultDiscount: number;
-  /** Inactive clients are left out of the client list, as in the API. Missing means active. */
+  /** Inactive clients are left out of the client list and cannot be billed, as in the API. Missing means active. */
   isActive?: boolean;
   /** Demo seed only: billing from before the sample rentals, so the ledger shows a believable history. */
   billedBeforeDemo?: number;
@@ -214,6 +214,8 @@ function placeOrder(payload: Record<string, any>): MockResponse {
   const companies = read<MockCompany>(MOCK_STORAGE.companies);
   const company = companies.find(c => c.companyId === Number(payload['companyId']));
   if (!company) return fail(404, 'Company not found.');
+  // A deactivated client can still pay and have rentals cancelled, but takes no new orders
+  if (company.isActive === false) return fail(409, 'Company is inactive and cannot be billed.');
 
   // End dates are inclusive: the machine is unavailable on its return day
   const rentals = read<MockRental>(MOCK_STORAGE.rentals);

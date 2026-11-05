@@ -256,6 +256,16 @@
       "expect": { "status": 404, "message": "Company not found.", "balances": { "Build-It Corp": 1000 }, "rentalCount": 0 }
     },
     {
+      "name": "order: a deactivated client cannot be billed",
+      "given": { "clients": [{ "id": 2, "name": "Dormant Haulage", "balance": 1000, "active": false }] },
+      "request": {
+        "method": "POST",
+        "path": "/api/orders/place-bulk-order",
+        "body": { "companyId": 2, "items": [{ "machineId": 101, "machineName": "Excavator X3000", "plateNumber": "DX-1", "startDate": "2030-11-01", "endDate": "2030-11-03", "dailyRate": 450, "discount": 0, "taxPercent": 0, "taxType": "VAT" }] }
+      },
+      "expect": { "status": 409, "message": "Company is inactive and cannot be billed.", "balances": { "Dormant Haulage": 1000 }, "rentalCount": 0 }
+    },
+    {
       "name": "booking: starting on another booking's return day conflicts, whatever the plate's case and spacing",
       "given": {
         "clients": [{ "id": 1, "name": "Build-It Corp", "balance": 1000 }],
@@ -362,6 +372,12 @@
       "given": { "clients": [{ "id": 1, "name": "Build-It Corp", "balance": 12500 }] },
       "request": { "method": "POST", "path": "/api/payments/record", "body": { "companyId": 1, "amount": -25 } },
       "expect": { "status": 400, "message": "Payment amount must be greater than zero.", "balances": { "Build-It Corp": 12500 }, "receiptCount": 0 }
+    },
+    {
+      "name": "payment: a deactivated client can still settle the balance",
+      "given": { "clients": [{ "id": 2, "name": "Dormant Haulage", "balance": 500, "active": false }] },
+      "request": { "method": "POST", "path": "/api/payments/record", "body": { "companyId": 2, "amount": 500 } },
+      "expect": { "status": 200, "body": { "result": "SUCCESS" }, "balances": { "Dormant Haulage": 0 }, "receiptCount": 1 }
     },
     {
       "name": "payment: a payment below one cent is refused as zero",

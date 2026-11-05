@@ -25,9 +25,9 @@ Each group changes the API, its tests, the contract cases and the demo mock toge
 
 ## 4. Deactivated clients
 
-- [ ] 4.1 Refuse an order for an inactive client with 409 "Company is inactive and cannot be billed." after the client lookup (D6); verify `dotnet build` passes
-- [ ] 4.2 Add API tests: order for a deactivated client is refused with nothing stored, a deactivated client pays in full, a deactivated client's rental is cancelled with its amount reversed, and an unknown client still gets 404; verify `dotnet test` passes
-- [ ] 4.3 Add the deactivated-client order and payment contract cases and the same rule in the mock; verify both contract runners pass
+- [x] 4.1 Refuse an order for an inactive client with 409 "Company is inactive and cannot be billed." after the client lookup (D6); verify `dotnet build` passes
+- [x] 4.2 Add API tests: order for a deactivated client is refused with nothing stored, a deactivated client pays in full, a deactivated client's rental is cancelled with its amount reversed, and an unknown client still gets 404; verify `dotnet test` passes
+- [x] 4.3 Add the deactivated-client order and payment contract cases and the same rule in the mock; verify both contract runners pass
 
 ## 5. Conflict handling
 
